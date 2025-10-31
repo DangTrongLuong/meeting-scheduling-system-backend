@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: library_management_system
+  web:
+    resources:
+      static-locations: file:uploads/
+    cors:
+      allowed-origins:
+        - http://localhost:5173
+        - http://localhost:5174
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+      allowed-headers: Authorization,userId,Content-Type,role
+      allow-credentials: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+      enabled: true
+  datasource:
+    url: jdbc:mysql://localhost:3306/meeting_scheduling_system
+    username: root
+    password: Luong23@
+
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      connection-timeout: 30000
+      maximum-pool-size: 10
+      max-lifetime: 1800000
+      connection-init-sql: SELECT 1
+      initialization-fail-timeout: 0
+      minimum-idle: 5
+      idle-timeout: 600000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        connection:
+          characterEncoding: utf8mb4
+          useUnicode: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+server:
+  port: 8080
+
+# Logging
+logging:
+  level:
+    org:
+      springframework:
+        security:
+          oauth2: TRACE
+        web: DEBUG
+    com:
+      library:
+        library_management_system: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus, health
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+frontend:
+  url: ${FRONTEND_URL}
