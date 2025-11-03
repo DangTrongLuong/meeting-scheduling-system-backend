@@ -16,12 +16,13 @@ public class CorsConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                        .allowedOrigins("*") // cho phép mọi origin
-                        //.allowedOrigins("http://localhost:")
+                        // .allowedOrigins("*") // cho phép mọi origin
+                        .allowedOrigins("http://localhost:5173")
                         // .allowedOrigins("https://quanliduan-pms.site")
                         .allowedHeaders("*")
                         .allowCredentials(true)
-                        .exposedHeaders("Access-Control-Allow-Origin", "Access-Control-Allow-Methods", "Access-Control-Allow-Headers","Location",
+                        .exposedHeaders("Access-Control-Allow-Origin", "Access-Control-Allow-Methods",
+                                "Access-Control-Allow-Headers", "Location",
                                 "Content-Type")
                         .maxAge(3600);
             }

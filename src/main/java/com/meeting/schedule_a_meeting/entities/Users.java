@@ -1,8 +1,8 @@
 package com.meeting.schedule_a_meeting.entities;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
-import jakarta.validation.constraints.*;
 import org.hibernate.annotations.GenericGenerator;
 
 import com.meeting.schedule_a_meeting.enums.AuthProvider;
@@ -15,6 +15,9 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -32,7 +35,7 @@ public class Users {
     @GeneratedValue(generator = "UUID")
     @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
     @Column(name = "user_id", updatable = false, nullable = false)
-    String user_id;
+    UUID id;
 
     @Column(name = "google_id", unique = true)
     String googleId;
@@ -47,7 +50,6 @@ public class Users {
     @Column(name = "email", nullable = false, unique = true, length = 100)
     String email;
 
-
     @Column(name = "password", length = 255)
     String password;
 
@@ -58,7 +60,7 @@ public class Users {
     String address;
 
     @Column(name = "avatar_url", length = 500)
-    String avatarUrl;
+    String avatar_url;
 
     @Column(name = "access_token", length = 1000)
     String accessToken;
@@ -67,7 +69,7 @@ public class Users {
     String refreshToken;
 
     @Column(name = "background_url", length = 500)
-    String backgroundUrl;
+    String background_url;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "auth_provider", length = 20)
@@ -83,4 +85,3 @@ public class Users {
     @Column(name = "created_at", nullable = false, updatable = false)
     LocalDate createdAt;
 }
-
