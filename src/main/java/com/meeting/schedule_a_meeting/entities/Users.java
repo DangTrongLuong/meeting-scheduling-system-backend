@@ -51,6 +51,12 @@ public class Users {
     @Column(name = "password", length = 255)
     String password;
 
+    @Column(name = "age")
+    int age;
+
+    @Column(name = "address", length = 255)
+    String address;
+
     @Column(name = "avatar_url", length = 500)
     String avatarUrl;
 
