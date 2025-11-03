@@ -1,7 +1,7 @@
 package com.meeting.schedule_a_meeting.controllers.users;
 
 import com.meeting.schedule_a_meeting.entities.Users;
-import com.meeting.schedule_a_meeting.service.UserService;
+import com.meeting.schedule_a_meeting.service.users.UserService;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
