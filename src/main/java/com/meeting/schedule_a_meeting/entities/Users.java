@@ -1,6 +1,7 @@
 package com.meeting.schedule_a_meeting.entities;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.hibernate.annotations.GenericGenerator;
@@ -90,4 +91,13 @@ public class Users {
 
     @Column(name = "verification_token", length = 36, unique = true)
     String verificationToken;
+
+    @Column(name = "reset_code")
+    String resetCode;
+
+    @Column(name = "reset_code_expiry")
+    LocalDateTime resetCodeExpiry;
+
+    @Column(name = "reset_attempts")
+    Integer resetAttempts = 0;
 }
