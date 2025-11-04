@@ -85,22 +85,6 @@ public class UserController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout() {
-        try {
-            userService.logout();
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Logged out successfully");
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Logout failed: {}", e.getMessage());
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", "Logout failed");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
-        }
-    }
-    @PostMapping("/logout")
     public ResponseEntity<?> logout(@RequestHeader(value = "Authorization", required = false) String bearerToken) {
         try {
             userService.logout(bearerToken);
