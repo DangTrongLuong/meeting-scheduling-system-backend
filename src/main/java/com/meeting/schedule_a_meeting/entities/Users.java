@@ -84,4 +84,10 @@ public class Users {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     LocalDate createdAt;
+
+    @Column(name = "is_active", nullable = false)
+    boolean active = false;
+
+    @Column(name = "verification_token", length = 36, unique = true)
+    String verificationToken;
 }

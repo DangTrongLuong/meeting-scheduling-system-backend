@@ -13,6 +13,7 @@ import com.meeting.schedule_a_meeting.dto.request.users.UserCreationRequest;
 import com.meeting.schedule_a_meeting.dto.request.users.UserUpdateRequest;
 import com.meeting.schedule_a_meeting.dto.response.users.UserResponse;
 import com.meeting.schedule_a_meeting.entities.Users;
+import com.meeting.schedule_a_meeting.enums.ErrorStatus;
 import com.meeting.schedule_a_meeting.exception.AppException;
 import com.meeting.schedule_a_meeting.repositories.UserRepository;
 import com.meeting.schedule_a_meeting.service.users.UserService;
@@ -105,5 +106,41 @@ public class UserController {
             errorResponse.put("message", "Internal server error");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
+    }
+
+    @PostMapping("/verify")
+    public ResponseEntity<?> verifyAccount(
+            @RequestParam("email") String email,
+            @RequestParam("token") String token) {
+        if (token == null || token.trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of(
+                            "success", false,
+                            "message", "Verification token is missing."));
+        }
+
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOTFOUND));
+
+        if (user.isActive()) {
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Account is already activated."));
+        }
+
+        if (user.getVerificationToken() == null || !user.getVerificationToken().equals(token)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of(
+                            "success", false,
+                            "message", "Invalid or expired verification token."));
+        }
+
+        user.setActive(true);
+        user.setVerificationToken(null);
+        userRepository.save(user);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Account activated successfully! You can now login."));
     }
 }

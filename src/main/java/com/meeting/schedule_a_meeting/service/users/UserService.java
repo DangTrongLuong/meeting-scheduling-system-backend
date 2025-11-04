@@ -35,6 +35,7 @@ public class UserService {
     final UserRepository userRepository;
     final PasswordEncoder passwordEncoder;
     final UserMapper userMapper;
+    final EmailService emailService;
 
     private static final String DEFAULT_AVATAR_URL = "http://localhost:8080/uploads/avatars/user-avatar.png";
 
@@ -46,11 +47,21 @@ public class UserService {
         }
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setAuthProvider(AuthProvider.LOCAL); // Thêm giá trị mặc định
+        user.setAuthProvider(AuthProvider.LOCAL);
         user.setRole(Role.USER);
         user.setCreatedAt(LocalDate.now());
         user.setAvatar_url(DEFAULT_AVATAR_URL);
-        return userRepository.save(user);
+        user.setVerificationToken(UUID.randomUUID().toString());
+        user.setActive(false);
+
+        user = userRepository.save(user);
+        String verifyLink = "http://localhost:5173/verify?email="
+                + user.getEmail()
+                + "&token="
+                + user.getVerificationToken();
+        emailService.sendVerificationEmail(user.getEmail(), verifyLink);
+
+        return user;
     }
 
     public boolean checkEmailExists(String email) {
