@@ -50,12 +50,12 @@ public class SecurityConfig {
                         .redirectionEndpoint(redirection -> redirection
                                 .baseUri("/login/oauth2/code/*"))
                         .defaultSuccessUrl("/api/auth/loginSuccess", true)
-                        //.successHandler(customSuccessHandler)
+                        // .successHandler(customSuccessHandler)
                         .failureUrl("/api/auth/login/google?error=true"))
                 .oauth2Client(Customizer.withDefaults())
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")
-                        .logoutSuccessUrl("http://localhost:5173/login")
+                        .logoutSuccessUrl("http://localhost:5173/")
 
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
@@ -99,4 +99,3 @@ public class SecurityConfig {
         return source;
     }
 }
-
