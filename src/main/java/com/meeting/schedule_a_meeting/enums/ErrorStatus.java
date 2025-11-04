@@ -5,6 +5,9 @@ public enum ErrorStatus {
     USER_NOT_EXISTED(400, "User Not Existed!"),
     INVALID_CREDENTIALS(400, "Invalid Creadentials!"),
 
+    DEVICE_ALREADY_EXISTS(400,"Device already exists"),
+    DEVICE_NOT_FOUND(400,"Device not found"),
+
     USER_EXISTED(400, "User does exist!"),
     INVALID_TOKEN(400, "Invalid Token!");
 
