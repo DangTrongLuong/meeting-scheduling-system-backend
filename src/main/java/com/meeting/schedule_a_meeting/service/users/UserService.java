@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -76,4 +78,23 @@ public class UserService {
                 .orElseThrow(() -> new AppException(ErrorStatus.USER_NOTFOUND)));
     }
 
+    public void logout() {
+        // Get current authenticated user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null) {
+            String userEmail = authentication.getName();
+            Users user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOTFOUND));
+
+            // Clear tokens
+            user.setAccessToken(null);
+            user.setRefreshToken(null);
+            userRepository.save(user);
+
+            // Clear security context
+            SecurityContextHolder.clearContext();
+
+            log.info("User logged out successfully: {}", userEmail);
+        }
+    }
 }
