@@ -1,6 +1,5 @@
 package com.meeting.schedule_a_meeting.controllers.users;
 
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -30,7 +29,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.AccessLevel;
@@ -58,7 +56,6 @@ public class AuthGoogleController {
     private JwtDecoder googleJwtDecoder;
     private static final Key SECRET_KEY = Keys.secretKeyFor(io.jsonwebtoken.SignatureAlgorithm.HS512);
 
-
     @GetMapping("/login/google")
     public void loginGoogleAuth(HttpServletResponse response) throws IOException {
         log.info("Initiating Google OAuth2 login");
@@ -67,14 +64,14 @@ public class AuthGoogleController {
 
     @GetMapping("/loginSuccess")
     public void handleGoogleSuccess(OAuth2AuthenticationToken auth2AuthenticationToken,
-                                    HttpServletResponse response,
-                                    HttpSession session) throws IOException {
+            HttpServletResponse response,
+            HttpSession session) throws IOException {
 
         log.info("=== LOGIN SUCCESS ENDPOINT HIT ===");
 
         if (auth2AuthenticationToken == null) {
             log.error("OAuth2AuthenticationToken is null, redirecting to login");
-            response.sendRedirect("http://localhost:3000/login?error=auth_failed");
+            response.sendRedirect("http://localhost:5173/?error=auth_failed");
             // response.sendRedirect("https://quanliduan-pms.site/login?error=auth_failed");
             return;
         }
@@ -99,12 +96,12 @@ public class AuthGoogleController {
             log.info("User data stored in session, redirecting to frontend");
 
             // Redirect to frontend
-            response.sendRedirect("http://localhost:3000/loginSuccess");
-            //response.sendRedirect("https://quanliduan-pms.site/loginSuccess");
+            response.sendRedirect("http://localhost:5173/loginSuccess");
+            // response.sendRedirect("https://quanliduan-pms.site/loginSuccess");
 
         } catch (Exception e) {
             log.error("Error processing OAuth2 login", e);
-            response.sendRedirect("http://localhost:3000/login?error=processing_failed");
+            response.sendRedirect("http://localhost:5173/?error=processing_failed");
             // response.sendRedirect("https://quanliduan-pms.site/login?error=processing_failed");
         }
     }
@@ -154,7 +151,8 @@ public class AuthGoogleController {
 
         log.info("Attempting to refresh token");
         try {
-            HttpURLConnection conn = (HttpURLConnection) new URL("https://oauth2.googleapis.com/token").openConnection();
+            HttpURLConnection conn = (HttpURLConnection) new URL("https://oauth2.googleapis.com/token")
+                    .openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
             String body = "client_id=23955059535-ms7k1vo9hcgjdfhkoup7u3i01pqecq4u.apps.googleusercontent.com"
@@ -223,8 +221,7 @@ public class AuthGoogleController {
                     "https://www.googleapis.com/oauth2/v3/userinfo",
                     HttpMethod.GET,
                     entity,
-                    Map.class
-            );
+                    Map.class);
 
             if (!googleResponse.getStatusCode().is2xxSuccessful()) {
                 throw new Exception("Failed to fetch user info from Google: " + googleResponse.getStatusCode());
@@ -258,4 +255,3 @@ public class AuthGoogleController {
         }
     }
 }
-
