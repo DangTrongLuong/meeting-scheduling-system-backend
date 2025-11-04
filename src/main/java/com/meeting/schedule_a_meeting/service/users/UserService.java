@@ -1,7 +1,9 @@
 package com.meeting.schedule_a_meeting.service.users;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 
 import org.springframework.security.core.Authentication;
@@ -93,21 +95,71 @@ public class UserService {
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
             String token = bearerToken.substring(7);
 
-            // Find user by access token
             Users user = userRepository.findByAccessToken(token)
                     .orElseThrow(() -> new AppException(ErrorStatus.USER_NOTFOUND));
 
-            // Invalidate tokens
             user.setAccessToken(null);
             user.setRefreshToken(null);
             userRepository.save(user);
 
-            // Clear security context
             SecurityContextHolder.clearContext();
 
             log.info("User logged out successfully: {}", user.getEmail());
         } else {
             throw new AppException(ErrorStatus.INVALID_TOKEN);
         }
+    }
+
+    public void sendResetCode(String email) {
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_EXISTED));
+
+        String code = generateResetCode();
+        user.setResetCode(code);
+        user.setResetCodeExpiry(LocalDateTime.now().plusMinutes(10));
+        user.setResetAttempts(0);
+        userRepository.save(user);
+
+        emailService.sendResetCodeEmail(email, code);
+    }
+
+    private String generateResetCode() {
+        return String.format("%06d", new Random().nextInt(999999));
+    }
+
+    public boolean verifyResetCode(String email, String code) {
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_EXISTED));
+
+        if (user.getResetCode() == null || LocalDateTime.now().isAfter(user.getResetCodeExpiry())) {
+            throw new AppException(ErrorStatus.INVALID_TOKEN, "Code expired");
+        }
+
+        if (!user.getResetCode().equals(code)) {
+            int attempts = user.getResetAttempts() + 1;
+            user.setResetAttempts(attempts);
+            if (attempts >= 5) {
+                user.setResetCode(null);
+                user.setResetCodeExpiry(null);
+                userRepository.save(user);
+                throw new AppException(ErrorStatus.INVALID_TOKEN,
+                        "Maximum attempts reached. Please request a new code.");
+            }
+            userRepository.save(user);
+            throw new AppException(ErrorStatus.INVALID_TOKEN, "Invalid code. " + (5 - attempts) + " attempts left.");
+        }
+
+        return true;
+    }
+
+    public void resetPassword(String email, String newPassword) {
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_EXISTED));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setResetCode(null);
+        user.setResetCodeExpiry(null);
+        user.setResetAttempts(0);
+        userRepository.save(user);
     }
 }

@@ -20,4 +20,17 @@ public class EmailService {
         message.setText("Click the following link to activate your account:\n\n" + verifyLink);
         mailSender.send(message);
     }
+
+    public void sendResetCodeEmail(String to, String code) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setSubject("Your Password Reset Code");
+        message.setText(
+            "Your password reset code is:\n\n" +
+            "   " + code + "\n\n" +
+            "This code will expire in 10 minutes.\n" +
+            "If you didn't request this, please ignore this email."
+        );
+        mailSender.send(message);
+    }
 }

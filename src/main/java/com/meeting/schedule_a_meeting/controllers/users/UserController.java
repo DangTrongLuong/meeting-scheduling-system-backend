@@ -143,4 +143,27 @@ public class UserController {
                 "success", true,
                 "message", "Account activated successfully! You can now login."));
     }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        userService.sendResetCode(email);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Reset code sent to your email."));
+    }
+
+    @PostMapping("/verify-reset-code")
+    public ResponseEntity<?> verifyResetCode(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String code = request.get("code");
+        userService.verifyResetCode(email, code);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Code verified successfully."));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String newPassword = request.get("newPassword");
+        userService.resetPassword(email, newPassword);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Password reset successfully."));
+    }
 }
