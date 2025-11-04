@@ -78,15 +78,15 @@ public class UserService {
                 .orElseThrow(() -> new AppException(ErrorStatus.USER_NOTFOUND)));
     }
 
-    public void logout() {
-        // Get current authenticated user
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null) {
-            String userEmail = authentication.getName();
-            Users user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOTFOUND));
+    public void logout(String bearerToken) {
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            String token = bearerToken.substring(7);
 
-            // Clear tokens
+            // Find user by access token
+            Users user = userRepository.findByAccessToken(token)
+                    .orElseThrow(() -> new AppException(ErrorStatus.USER_NOTFOUND));
+
+            // Invalidate tokens
             user.setAccessToken(null);
             user.setRefreshToken(null);
             userRepository.save(user);
@@ -94,7 +94,9 @@ public class UserService {
             // Clear security context
             SecurityContextHolder.clearContext();
 
-            log.info("User logged out successfully: {}", userEmail);
+            log.info("User logged out successfully: {}", user.getEmail());
+        } else {
+            throw new AppException(ErrorStatus.INVALID_TOKEN);
         }
     }
 }
