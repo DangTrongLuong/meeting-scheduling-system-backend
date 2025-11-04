@@ -64,6 +64,23 @@ spring:
             user-name-attribute: sub
             user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
 
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${EMAIL_USERNAME}
+    password: ${EMAIL_PASSWORD}
+    protocol: smtp
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        debug: true
+    default-encoding: UTF-8
+    test-connection: false
+
 # Logging
 logging:
   level:

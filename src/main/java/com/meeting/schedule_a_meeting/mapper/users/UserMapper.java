@@ -14,12 +14,14 @@ public interface UserMapper {
     @Mapping(target = "name", source = "name")
     @Mapping(target = "email", source = "email")
     @Mapping(target = "password", source = "password")
+    @Mapping(target = "active", constant = "false")
+    @Mapping(target = "verificationToken", ignore = true)
     Users toUser(UserCreationRequest request);
 
     @Mapping(target = "name", source = "name")
     @Mapping(target = "email", source = "email")
     UserResponse toUserResponse(Users user);
-    
+
     void updateUser(@MappingTarget Users user, UserUpdateRequest request);
 
 }
