@@ -1,5 +1,9 @@
 package com.meeting.schedule_a_meeting.controllers.users;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -8,6 +12,7 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.meeting.schedule_a_meeting.dto.request.users.UserCreationRequest;
 import com.meeting.schedule_a_meeting.dto.request.users.UserUpdateRequest;
@@ -165,5 +170,85 @@ public class UserController {
         String newPassword = request.get("newPassword");
         userService.resetPassword(email, newPassword);
         return ResponseEntity.ok(Map.of("success", true, "message", "Password reset successfully."));
+    }
+
+    @PostMapping("/upload-avatar")
+    public ResponseEntity<Map<String, Object>> uploadAvatar(
+            @RequestParam("avatar") MultipartFile file,
+            @RequestParam("email") String email) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Users user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("Email not found"));
+
+            String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+            Path filePath = Paths.get("uploads/avatars/" + fileName);
+            Files.createDirectories(filePath.getParent());
+            Files.write(filePath, file.getBytes());
+
+            user.setAvatar_url("/uploads/avatars/" + fileName);
+            userRepository.save(user);
+
+            response.put("success", true);
+            response.put("avatar_url", user.getAvatar_url());
+            return ResponseEntity.ok(response);
+        } catch (IOException e) {
+            response.put("success", false);
+            response.put("message", "Error uploading avatar: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    @PostMapping("/upload-background")
+    public ResponseEntity<Map<String, Object>> uploadBackground(
+            @RequestParam("background") MultipartFile file,
+            @RequestParam("email") String email) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Users user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("Email not found"));
+
+            String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+            Path filePath = Paths.get("uploads/backgrounds/" + fileName);
+            Files.createDirectories(filePath.getParent());
+            Files.write(filePath, file.getBytes());
+
+            user.setBackground_url("/uploads/backgrounds/" + fileName);
+            userRepository.save(user);
+
+            response.put("success", true);
+            response.put("background_url", user.getBackground_url());
+            return ResponseEntity.ok(response);
+        } catch (IOException e) {
+            response.put("success", false);
+            response.put("message", "Error uploading background: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    @PostMapping("/remove-background")
+    public ResponseEntity<Map<String, Object>> removeBackground(@RequestBody Map<String, String> request) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            String email = request.get("email");
+            Users user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("Email not found"));
+
+            if (user.getBackground_url() != null) {
+                String fileName = user.getBackground_url().substring(user.getBackground_url().lastIndexOf("/") + 1);
+                Path filePath = Paths.get("uploads/backgrounds/" + fileName);
+                Files.deleteIfExists(filePath);
+                user.setBackground_url(null);
+                userRepository.save(user);
+            }
+
+            response.put("success", true);
+            response.put("message", "Background removed successfully");
+            return ResponseEntity.ok(response);
+        } catch (IOException e) {
+            response.put("success", false);
+            response.put("message", "Error removing background: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 }

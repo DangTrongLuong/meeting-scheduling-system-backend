@@ -22,4 +22,6 @@ public class UserResponse {
     String email;
     String avatar_url;
     Role role;
+    int age;
+    String address;
 }
