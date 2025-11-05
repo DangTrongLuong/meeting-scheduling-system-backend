@@ -1,6 +1,5 @@
 package com.meeting.schedule_a_meeting.config;
 
-
 import java.io.IOException;
 import java.security.Key;
 
@@ -38,7 +37,8 @@ public class TokenFilter extends OncePerRequestFilter {
 
         // Bỏ qua các endpoint công khai
         if (path.startsWith("/api/auth/")
-                || path.equals("/")) {
+                || path.equals("/")
+                || path.startsWith("/uploads/")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -73,7 +73,8 @@ public class TokenFilter extends OncePerRequestFilter {
                 }
             }
         } else if (userId != null && userName != null) {
-            // Cho phép nếu có userId và userName trong header (dùng session không đáng tin cậy)
+            // Cho phép nếu có userId và userName trong header (dùng session không đáng tin
+            // cậy)
             request.setAttribute("userId", userId);
             request.setAttribute("userName", userName);
             request.setAttribute("role", role);
@@ -84,4 +85,3 @@ public class TokenFilter extends OncePerRequestFilter {
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing or invalid token");
     }
 }
-
