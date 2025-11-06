@@ -21,7 +21,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.meeting.schedule_a_meeting.config.TokenFilter;
 
-@Configuration@EnableWebSecurity
+@Configuration
+@EnableWebSecurity
 public class SecurityConfig {
 
     @Autowired
@@ -31,9 +32,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(Customizer.withDefaults())
-                // ✅ Không tạo session cho API REST
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .cors(Customizer.withDefaults()) // Sử dụng cấu hình CORS từ CorsConfig
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -42,14 +42,25 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").permitAll()
                         .requestMatchers("/api/admin/rooms/**").permitAll()
                         .requestMatchers("/api/admin/devices/**").permitAll()
+
                         .anyRequest().authenticated())
-                // ✅ Tắt redirect HTML login, dùng HTTP Basic cho API
-                .httpBasic(Customizer.withDefaults())
+                .oauth2Login(oauth2 -> oauth2
+                        .loginPage("/api/auth/login/google")
+                        .authorizationEndpoint(authorization -> authorization
+                                .baseUri("/oauth2/authorization"))
+                        .redirectionEndpoint(redirection -> redirection
+                                .baseUri("/login/oauth2/code/*"))
+                        .defaultSuccessUrl("/api/auth/loginSuccess", true)
+                        // .successHandler(customSuccessHandler)
+                        .failureUrl("/api/auth/login/google?error=true"))
+                .oauth2Client(Customizer.withDefaults())
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")
                         .logoutSuccessUrl("http://localhost:5173/")
+
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
+
                         .deleteCookies("JSESSIONID")
                         .permitAll());
 
