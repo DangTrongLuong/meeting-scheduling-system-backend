@@ -22,7 +22,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/meeting_scheduling_system
     username: root
-    password: Luong23@
+    password: N0g8o1c0
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       connection-timeout: 30000
@@ -49,8 +49,8 @@ spring:
       client:
         registration:
           google:
-            client-id: 732859314325-c0vvm2ors0mflkb8be4igt0navih871u.apps.googleusercontent.com
-            client-secret: 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
+            client-id:
+            client-secret:
             scope: openid,profile,email
             redirect-uri: http://localhost:8080/login/oauth2/code/google
             authorization-grant-type: authorization_code
@@ -67,8 +67,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: dangtrongluong4@gmail.com
-    password: gmnf ihiq wegq prbv
+    username:
+    password:
     protocol: smtp
     properties:
       mail:
