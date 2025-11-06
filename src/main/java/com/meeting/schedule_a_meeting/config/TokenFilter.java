@@ -38,7 +38,8 @@ public class TokenFilter extends OncePerRequestFilter {
         // Bỏ qua các endpoint công khai
         if (path.startsWith("/api/auth/")
                 || path.equals("/")
-                || path.startsWith("/uploads/")) {
+                || path.startsWith("/uploads/")
+        || path.startsWith("/api/admin/")) {
             filterChain.doFilter(request, response);
             return;
         }
