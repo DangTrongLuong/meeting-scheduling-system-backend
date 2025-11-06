@@ -38,7 +38,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
+
                         .requestMatchers("/api/auth/**").permitAll()
+
+                        .requestMatchers("/api/auth/**"
+                        ).permitAll()
+                        .requestMatchers("/api/admin/**"
+                        ).permitAll()
+
                         .requestMatchers("/api/admin/rooms/**").permitAll()
                         .requestMatchers("/api/admin/devices/**").permitAll() // ✅ mở quyền cho devices
                         .anyRequest().authenticated())
