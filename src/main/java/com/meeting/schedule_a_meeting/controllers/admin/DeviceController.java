@@ -30,12 +30,26 @@ public class DeviceController {
         deviceService.deleteDevice(id);
         return ResponseEntity.noContent().build();
 
+    }
+
     @PutMapping("/{id}")
-    public ResponseEntity<DeviceResponse> updateDevice(@PathVariable Long id,
-                                                       @Valid @RequestBody DeviceRequest request) {
+    public ResponseEntity<DeviceResponse> updateDevice (@PathVariable Long id,
+                                                        @Valid @RequestBody DeviceRequest request){
         DeviceResponse response = deviceService.updateDevice(id, request);
         return ResponseEntity.ok(response);
 
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<DeviceResponse> getDeviceById(@PathVariable Long id) {
+        DeviceResponse device = deviceService.getDeviceById(id);
+        return ResponseEntity.ok(device);
+    }
+
+
+    @GetMapping
+    public ResponseEntity<List<DeviceResponse>> getAllDevices() {
+        List<DeviceResponse> devices = deviceService.getAllDevices();
+        return ResponseEntity.ok(devices); // 200 OK
+    }
 }

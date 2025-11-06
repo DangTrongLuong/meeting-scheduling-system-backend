@@ -64,6 +64,18 @@ public class DeviceService {
         return deviceMapper.toResponse(deviceRepository.save(device));
     }
 
+    // ✅ Lấy tất cả thiết bị
+    public List<DeviceResponse> getAllDevices() {
+        return deviceRepository.findAll().stream()
+                .map(deviceMapper::toResponse)
+                .toList();
+    }
 
+    // ✅ Lấy chi tiết thiết bị theo ID
+    public DeviceResponse getDeviceById(Long id) {
+        Device device = deviceRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorStatus.DEVICE_NOT_FOUND));
+        return deviceMapper.toResponse(device);
+    }
 
 }
