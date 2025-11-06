@@ -39,5 +39,21 @@ public class DeviceService {
         return deviceMapper.toResponse(deviceRepository.save(device));
     }
 
+    // ✅ Cập nhật thiết bị
+    public DeviceResponse updateDevice(Long id, DeviceRequest request) {
+        Device device = deviceRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorStatus.DEVICE_NOT_FOUND));
+
+        if (!device.getName().equals(request.getName()) && deviceRepository.existsByName(request.getName())) {
+            throw new AppException(ErrorStatus.DEVICE_ALREADY_EXISTS);
+        }
+
+        device.setName(request.getName());
+        device.setActive(request.isActive());
+        device.setQuantity(request.getQuantity());
+
+        return deviceMapper.toResponse(deviceRepository.save(device));
+    }
+
 
 }
