@@ -24,6 +24,10 @@ public class DeviceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response); // 201 Created
     }
 
-
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteDevice(@PathVariable Long id) {
+        deviceService.deleteDevice(id);
+        return ResponseEntity.noContent().build();
+    }
 
 }
