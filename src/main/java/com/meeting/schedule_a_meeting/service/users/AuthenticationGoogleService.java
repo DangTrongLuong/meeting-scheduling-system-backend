@@ -3,11 +3,16 @@ package com.meeting.schedule_a_meeting.service.users;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.UUID;
 
 import com.meeting.schedule_a_meeting.entities.Users;
 import com.meeting.schedule_a_meeting.enums.AuthProvider;
+import com.meeting.schedule_a_meeting.enums.ErrorStatus;
 import com.meeting.schedule_a_meeting.enums.Role;
+import com.meeting.schedule_a_meeting.exception.AppException;
 import com.meeting.schedule_a_meeting.repositories.UserRepository;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -55,6 +60,7 @@ public class AuthenticationGoogleService {
         log.info("EXPIRES IN: {} seconds", expiresIn);
 
         Users user = userRepository.findByEmail(email).orElse(null);
+
         if (user == null) {
             user = new Users();
             user.setName(name);
@@ -91,6 +97,25 @@ public class AuthenticationGoogleService {
 
         user.setExpiresIn((int) expiresIn);
         return user;
+    }
+    public void changePassword(UUID userId, String oldPassword, String newPassword) {
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_EXISTED));
+
+        // Kiểm tra nếu tài khoản đăng nhập bằng Google
+        if (user.getAuthProvider() == AuthProvider.GOOGLE) {
+            throw new AppException(ErrorStatus.RESET_PASSWORD_NOT_ALLOWED_FOR_GOOGLE_USER);
+        }
+
+        // Kiểm tra mật khẩu cũ
+        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new AppException(ErrorStatus.INVALID_CREDENTIALS);
+        }
+
+        // Cập nhật mật khẩu mới
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 }
 
