@@ -10,6 +10,7 @@ public enum ErrorStatus {
 
     USER_EXISTED(409, "User does exist!"),
     USER_NOT_ACTIVATED(403, "Account not activated. Please check your email."),
+    UNAUTHORIZED(403, "Unauthorized"),
     INVALID_TOKEN(401, "Invalid Token!");
 
     private final int status;
