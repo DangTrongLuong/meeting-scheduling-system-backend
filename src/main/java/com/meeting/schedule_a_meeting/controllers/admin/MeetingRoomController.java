@@ -26,6 +26,12 @@ public class MeetingRoomController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PutMapping("/{id}")
+    public MeetingRoomResponse updateRoom(@PathVariable Long id, @RequestBody MeetingRoomRequest request) {
+        return meetingRoomService.updateRoom(id, request);
+    }
+
+
 
 
 }
