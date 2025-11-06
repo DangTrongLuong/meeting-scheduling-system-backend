@@ -19,7 +19,7 @@ public class MeetingRoomController {
     }
 
 
-    //them phong
+    //them_phong
     @PostMapping
     public ResponseEntity<MeetingRoomResponse> addRoom(@RequestBody MeetingRoomRequest request) {
         MeetingRoomResponse response = meetingRoomService.addRoom(request);

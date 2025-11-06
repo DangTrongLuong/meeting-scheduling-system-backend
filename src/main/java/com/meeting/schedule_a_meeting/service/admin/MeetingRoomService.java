@@ -17,7 +17,7 @@ public class MeetingRoomService {
         this.meetingRoomRepository = meetingRoomRepository;
     }
 
-    //the, phong
+    //them_phong
     public MeetingRoomResponse addRoom(MeetingRoomRequest request) {
         MeetingRoom room = new MeetingRoom(null, request.getName(), request.getLocation(), request.getCapacity());
         MeetingRoom saved = meetingRoomRepository.save(room);
