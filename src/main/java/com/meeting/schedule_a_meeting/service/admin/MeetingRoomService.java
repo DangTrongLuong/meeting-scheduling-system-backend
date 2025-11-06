@@ -24,5 +24,16 @@ public class MeetingRoomService {
         return new MeetingRoomResponse(saved.getId(), saved.getName(), saved.getLocation(), saved.getCapacity());
     }
 
+    public MeetingRoomResponse updateRoom(Long id, MeetingRoomRequest request) {
+        MeetingRoom room = meetingRoomRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Room not found"));
+        room.setName(request.getName());
+        room.setLocation(request.getLocation());
+        room.setCapacity(request.getCapacity());
+        MeetingRoom updated = meetingRoomRepository.save(room);
+        return new MeetingRoomResponse(updated.getId(), updated.getName(), updated.getLocation(), updated.getCapacity());
+    }
+
+
 
 }
