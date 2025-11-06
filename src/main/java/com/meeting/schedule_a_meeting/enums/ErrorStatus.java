@@ -10,7 +10,9 @@ public enum ErrorStatus {
 
     USER_EXISTED(409, "User does exist!"),
     USER_NOT_ACTIVATED(403, "Account not activated. Please check your email."),
-    INVALID_TOKEN(401, "Invalid Token!");
+    INVALID_TOKEN(401, "Invalid Token!"),
+
+    RESET_PASSWORD_NOT_ALLOWED_FOR_GOOGLE_USER(403, "Tài khoản của bạn đăng nhập bằng Google. Vui lòng đổi mật khẩu trực tiếp trong tài khoản Google.");
 
     private final int status;
     private final String message;
