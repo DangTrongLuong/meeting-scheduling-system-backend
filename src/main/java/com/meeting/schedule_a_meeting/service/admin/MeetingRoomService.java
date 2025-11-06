@@ -34,6 +34,10 @@ public class MeetingRoomService {
         return new MeetingRoomResponse(updated.getId(), updated.getName(), updated.getLocation(), updated.getCapacity());
     }
 
+    public void deleteRoom(Long id) {
+        meetingRoomRepository.deleteById(id);
+    }
+
 
 
 }
