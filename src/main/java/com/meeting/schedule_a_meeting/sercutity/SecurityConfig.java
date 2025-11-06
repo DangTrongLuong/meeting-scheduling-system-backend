@@ -38,10 +38,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
-                        .requestMatchers("/api/auth/**"
-                        ).permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/admin/rooms/**").permitAll()
-
+                        .requestMatchers("/api/admin/devices/**").permitAll() // ✅ mở quyền cho devices
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         .loginPage("/api/auth/login/google")
@@ -56,10 +55,8 @@ public class SecurityConfig {
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")
                         .logoutSuccessUrl("http://localhost:5173/")
-
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
-
                         .deleteCookies("JSESSIONID")
                         .permitAll());
 
