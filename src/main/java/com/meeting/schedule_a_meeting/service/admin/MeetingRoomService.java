@@ -38,6 +38,10 @@ public class MeetingRoomService {
         meetingRoomRepository.deleteById(id);
     }
 
-
+    public List<MeetingRoomResponse> getAllRooms() {
+        return meetingRoomRepository.findAll().stream()
+                .map(r -> new MeetingRoomResponse(r.getId(), r.getName(), r.getLocation(), r.getCapacity()))
+                .collect(Collectors.toList());
+    }
 
 }

@@ -36,5 +36,9 @@ public class MeetingRoomController {
         meetingRoomService.deleteRoom(id);
     }
 
+    @GetMapping
+    public List<MeetingRoomResponse> getAllRooms() {
+        return meetingRoomService.getAllRooms();
+    }
 
 }
