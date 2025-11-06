@@ -49,8 +49,8 @@ spring:
       client:
         registration:
           google:
-            client-id:
-            client-secret:
+            client-id: 732859314325-c0vvm2ors0mflkb8be4igt0navih871u.apps.googleusercontent.com
+            client-secret: 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
             scope: openid,profile,email
             redirect-uri: http://localhost:8080/login/oauth2/code/google
             authorization-grant-type: authorization_code
@@ -67,8 +67,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username:
-    password:
+    username: dangtrongluong4@gmail.com
+    password: gmnf ihiq wegq prbv
     protocol: smtp
     properties:
       mail:

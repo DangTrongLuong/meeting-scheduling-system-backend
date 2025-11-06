@@ -14,14 +14,18 @@ import java.util.UUID;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Device {
+
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
 
     @Column(nullable = false, unique = true)
     String name;
 
-    String description;
+    @Column(nullable = false)
+    boolean active = true;
 
-    boolean active;
+    @Column(nullable = false)
+    int quantity = 0;
 }

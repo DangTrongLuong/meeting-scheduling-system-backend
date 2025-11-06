@@ -10,11 +10,10 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@FieldDefaults(level = AccessLevel.PRIVATE)
 public class DeviceResponse {
-    UUID id;
-    String name;
-    String description;
-    boolean active;
+    private Long id;
+    private String name;
+    private boolean active;
+    private int quantity;
 }
 
