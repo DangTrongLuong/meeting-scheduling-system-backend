@@ -23,11 +23,19 @@ public class DeviceController {
         DeviceResponse response = deviceService.createDevice(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response); // 201 Created
     }
+
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteDevice(@PathVariable Long id) {
+        deviceService.deleteDevice(id);
+        return ResponseEntity.noContent().build();
+
     @PutMapping("/{id}")
     public ResponseEntity<DeviceResponse> updateDevice(@PathVariable Long id,
                                                        @Valid @RequestBody DeviceRequest request) {
         DeviceResponse response = deviceService.updateDevice(id, request);
         return ResponseEntity.ok(response);
+
     }
 
 }

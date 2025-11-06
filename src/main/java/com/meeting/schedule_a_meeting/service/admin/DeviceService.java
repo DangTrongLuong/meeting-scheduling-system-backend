@@ -39,6 +39,15 @@ public class DeviceService {
         return deviceMapper.toResponse(deviceRepository.save(device));
     }
 
+
+    // ✅ Xóa thiết bị
+    public void deleteDevice(Long id) {
+        if (!deviceRepository.existsById(id)) {
+            throw new AppException(ErrorStatus.DEVICE_NOT_FOUND);
+        }
+        deviceRepository.deleteById(id);
+    }
+
     // ✅ Cập nhật thiết bị
     public DeviceResponse updateDevice(Long id, DeviceRequest request) {
         Device device = deviceRepository.findById(id)
@@ -54,6 +63,7 @@ public class DeviceService {
 
         return deviceMapper.toResponse(deviceRepository.save(device));
     }
+
 
 
 }
