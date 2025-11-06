@@ -31,7 +31,10 @@ public class MeetingRoomController {
         return meetingRoomService.updateRoom(id, request);
     }
 
-
+    @DeleteMapping("/{id}")
+    public void deleteRoom(@PathVariable Long id) {
+        meetingRoomService.deleteRoom(id);
+    }
 
 
 }
