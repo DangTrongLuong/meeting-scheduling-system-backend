@@ -1,8 +1,10 @@
 package com.meeting.schedule_a_meeting.service.admin;
 
 import java.security.Key;
+import java.time.LocalDateTime;
 import java.util.Date;
 
+import com.meeting.schedule_a_meeting.enums.AuthProvider;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,6 +30,7 @@ import lombok.experimental.FieldDefaults;
 public class AdminService {
 
     AdminRepository adminRepository;
+    final PasswordEncoder passwordEncoder;
     private static final Key SECRET_KEY = Keys.secretKeyFor(SignatureAlgorithm.HS512);
     private static final long EXPIRATION_TIME = 3600_000; // 1 giờ (milliseconds)
     private static final String DEFAULT_AVATAR_URL = "http://localhost:8080/uploads/avatars/admin-avatar.png";
@@ -85,5 +88,31 @@ public class AdminService {
                 .backgroundUrl(admin.getBackground_url() != null ? admin.getBackground_url() : "")
                 .authProvider(admin.getAuthProvider() != null ? admin.getAuthProvider().name() : "LOCAL")
                 .build();
+    }
+
+    public void checkEmailGG(String email) {
+        Users admin = adminRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorStatus.ADMIN_NOT_EXISTED));
+
+
+        if (admin.getAuthProvider() == AuthProvider.GOOGLE || admin.getGoogleId() != null) {
+            throw new AppException(ErrorStatus.RESET_PASSWORD_NOT_ALLOWED_FOR_GOOGLE_USER);
+        }
+
+    }
+
+    public boolean checkCurrentPassword(String email, String currentPassword) {
+        Users admin = adminRepository.findByEmail(email).orElseThrow(() -> new AppException(ErrorStatus.ADMIN_NOT_EXISTED));;
+        if (admin == null) return false;
+
+        return passwordEncoder.matches(currentPassword, admin.getPassword());
+    }
+
+    public void resetPassword(String email, String newPassword) {
+        Users admin = adminRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorStatus.ADMIN_NOT_EXISTED));
+
+        admin.setPassword(passwordEncoder.encode(newPassword));
+        adminRepository.save(admin);
     }
 }

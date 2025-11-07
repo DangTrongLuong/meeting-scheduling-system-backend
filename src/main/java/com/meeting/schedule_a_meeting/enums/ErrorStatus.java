@@ -4,6 +4,7 @@ public enum ErrorStatus {
     // User-related errors
     USER_NOTFOUND(404, "User Not Found!"),
     USER_NOT_EXISTED(404, "User Not Existed!"),
+    ADMIN_NOT_EXISTED(404, "Admin Not Existed!"),
     USER_EXISTED(409, "User does exist!"),
     USER_NOT_ACTIVATED(403, "Account not activated. Please check your email."),
     RESET_PASSWORD_NOT_ALLOWED_FOR_GOOGLE_USER(403, "Reset password is not allowed for Google user"),
