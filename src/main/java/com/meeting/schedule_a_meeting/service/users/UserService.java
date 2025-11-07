@@ -114,7 +114,7 @@ public class UserService {
         Users user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_EXISTED));
 
-        // ✅ Kiểm tra nếu là tài khoản Google
+        // Kiem tra neu do la tai khoan google thi hien thong bao loi 
         if (user.getAuthProvider() == AuthProvider.GOOGLE || user.getGoogleId() != null) {
             throw new AppException(ErrorStatus.RESET_PASSWORD_NOT_ALLOWED_FOR_GOOGLE_USER);
         }
