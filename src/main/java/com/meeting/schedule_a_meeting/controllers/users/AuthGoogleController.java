@@ -5,12 +5,15 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.HashMap;
 import java.util.Map;
 
 import com.meeting.schedule_a_meeting.config.JwtTokenUtil;
 import com.meeting.schedule_a_meeting.entities.Users;
+import com.meeting.schedule_a_meeting.exception.AppException;
 import com.meeting.schedule_a_meeting.service.users.AuthenticationGoogleService;
 import com.meeting.schedule_a_meeting.service.users.UserService;
 import io.jsonwebtoken.security.Keys;
@@ -70,19 +73,14 @@ public class AuthGoogleController {
         log.info("=== LOGIN SUCCESS ENDPOINT HIT ===");
 
         if (auth2AuthenticationToken == null) {
-            log.error("OAuth2AuthenticationToken is null, redirecting to login");
+            log.error("OAuth2AuthenticationToken is null");
             response.sendRedirect("http://localhost:5173/?error=auth_failed");
-            // response.sendRedirect("https://quanliduan-pms.site/login?error=auth_failed");
             return;
         }
 
         try {
-            log.info("Processing OAuth2 authentication for user: {}",
-                    auth2AuthenticationToken.getPrincipal().getAttributes().get("email"));
-
             Users user = authenticationGoogleService.loginRegisterByGoogleOAuth2(auth2AuthenticationToken);
 
-            // Store user info in session
             session.setAttribute("userId", user.getId().toString());
             session.setAttribute("email", user.getEmail());
             session.setAttribute("name", user.getName());
@@ -93,16 +91,15 @@ public class AuthGoogleController {
             session.setAttribute("created_at", user.getCreatedAt().toString());
             session.setAttribute("backgroundUrl", user.getBackground_url());
 
-            log.info("User data stored in session, redirecting to frontend");
-
-            // Redirect to frontend
             response.sendRedirect("http://localhost:5173/loginSuccess");
-            // response.sendRedirect("https://quanliduan-pms.site/loginSuccess");
 
+        } catch (AppException e) {
+            log.error("Google login failed: {}", e.getMessage());
+            String errorMsg = URLEncoder.encode(e.getMessage(), StandardCharsets.UTF_8);
+            response.sendRedirect("http://localhost:5173/?error=google_login_failed&message=" + errorMsg);
         } catch (Exception e) {
-            log.error("Error processing OAuth2 login", e);
+            log.error("Unexpected error in Google login", e);
             response.sendRedirect("http://localhost:5173/?error=processing_failed");
-            // response.sendRedirect("https://quanliduan-pms.site/login?error=processing_failed");
         }
     }
 

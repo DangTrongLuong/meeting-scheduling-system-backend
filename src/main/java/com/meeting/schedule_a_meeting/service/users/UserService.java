@@ -45,7 +45,7 @@ public class UserService {
 
         Users user = userMapper.toUser(request);
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new AppException(ErrorStatus.USER_EXISTED);
+            throw new AppException(ErrorStatus.EMAIL_EXISTED);
         }
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
@@ -113,7 +113,6 @@ public class UserService {
     public void sendResetCode(String email) {
         Users user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_EXISTED));
-
 
         if (user.getAuthProvider() == AuthProvider.GOOGLE || user.getGoogleId() != null) {
             throw new AppException(ErrorStatus.RESET_PASSWORD_NOT_ALLOWED_FOR_GOOGLE_USER);
