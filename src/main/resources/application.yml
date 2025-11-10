@@ -1,0 +1,110 @@
+spring:
+  application:
+    name: meeting scheduling system
+  server:
+    port: 8080
+  web:
+    resources:
+      static-locations: file:uploads/
+    cors:
+      allowed-origins:
+        - http://localhost:5173
+        - http://localhost:5174
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+      allowed-headers: Authorization,userId,Content-Type,role
+      allow-credentials: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+      enabled: true
+  # MySQL
+  datasource:
+    url: jdbc:mysql://localhost:3306/meeting_scheduling_system
+    username: root
+    password: Luong23@
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      connection-timeout: 30000
+      maximum-pool-size: 10
+      max-lifetime: 1800000
+      connection-init-sql: SELECT 1
+      initialization-fail-timeout: 0
+      minimum-idle: 5
+      idle-timeout: 600000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        connection:
+          characterEncoding: utf8mb4
+          useUnicode: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+  # Google OAuth2
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+
+            scope: openid,profile,email
+            redirect-uri: http://localhost:8080/login/oauth2/code/google
+            authorization-grant-type: authorization_code
+            client-authentication-method: client_secret_basic
+
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth?access_type=offline&prompt=consent
+            token-uri: https://oauth2.googleapis.com/token
+            jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+            user-name-attribute: sub
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${EMAIL_USERNAME}
+    password: ${EMAIL_PASSWORD}
+
+    protocol: smtp
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        debug: true
+    default-encoding: UTF-8
+    test-connection: false
+
+# Logging
+logging:
+  level:
+    org:
+      springframework:
+        security:
+          oauth2: TRACE
+        web: DEBUG
+    com:
+      pms:
+        backend: DEBUG
+
+#endpoint Prometheus
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus, health
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+frontend:
+  url: http://localhost:5173
