@@ -24,7 +24,9 @@ public class Meeting {
 
     private LocalDateTime endTime;
 
-    private String room;
+    @ManyToOne
+    @JoinColumn(name = "room_id", nullable = false)
+    private MeetingRoom room;
 
     @ElementCollection
     @CollectionTable(name = "meeting_invitations", joinColumns = @JoinColumn(name = "meeting_id"))
