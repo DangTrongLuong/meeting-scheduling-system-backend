@@ -10,34 +10,31 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/admin/devices")
 @RequiredArgsConstructor
 public class DeviceController {
+
     private final DeviceService deviceService;
 
     @PostMapping
     public ResponseEntity<DeviceResponse> createDevice(@Valid @RequestBody DeviceRequest request) {
         DeviceResponse response = deviceService.createDevice(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response); // 201 Created
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
-
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteDevice(@PathVariable Long id) {
         deviceService.deleteDevice(id);
         return ResponseEntity.noContent().build();
-
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<DeviceResponse> updateDevice (@PathVariable Long id,
-                                                        @Valid @RequestBody DeviceRequest request){
+    public ResponseEntity<DeviceResponse> updateDevice(@PathVariable Long id,
+                                                       @Valid @RequestBody DeviceRequest request) {
         DeviceResponse response = deviceService.updateDevice(id, request);
         return ResponseEntity.ok(response);
-
     }
 
     @GetMapping("/{id}")
@@ -46,10 +43,9 @@ public class DeviceController {
         return ResponseEntity.ok(device);
     }
 
-
     @GetMapping
     public ResponseEntity<List<DeviceResponse>> getAllDevices() {
         List<DeviceResponse> devices = deviceService.getAllDevices();
-        return ResponseEntity.ok(devices); // 200 OK
+        return ResponseEntity.ok(devices);
     }
 }

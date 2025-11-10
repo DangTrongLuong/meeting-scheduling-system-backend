@@ -1,4 +1,4 @@
-package com.meeting.schedule_a_meeting.sercutity;
+package com.meeting.schedule_a_meeting.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,15 +15,12 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
+                        .allowedOrigins("http://localhost:5173") // React app
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                        // .allowedOrigins("*") // cho phép mọi origin
-                        .allowedOrigins("http://localhost:5173")
-                        // .allowedOrigins("https://quanliduan-pms.site")
                         .allowedHeaders("*")
                         .allowCredentials(true)
                         .exposedHeaders("Access-Control-Allow-Origin", "Access-Control-Allow-Methods",
-                                "Access-Control-Allow-Headers", "Location",
-                                "Content-Type")
+                                "Access-Control-Allow-Headers", "Location", "Content-Type")
                         .maxAge(3600);
             }
 
