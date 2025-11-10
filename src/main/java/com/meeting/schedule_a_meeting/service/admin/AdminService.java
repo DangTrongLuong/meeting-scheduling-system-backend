@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.Date;
 
 import com.meeting.schedule_a_meeting.enums.AuthProvider;
+import com.meeting.schedule_a_meeting.repositories.AdminRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,7 +16,6 @@ import com.meeting.schedule_a_meeting.entities.Users;
 import com.meeting.schedule_a_meeting.enums.ErrorStatus;
 import com.meeting.schedule_a_meeting.enums.Role;
 import com.meeting.schedule_a_meeting.exception.AppException;
-import com.meeting.schedule_a_meeting.repositories.AdminRepository;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -25,15 +25,21 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 @Service
-@RequiredArgsConstructor
+
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AdminService {
 
-    AdminRepository adminRepository;
+    private AdminRepository adminRepository;
     final PasswordEncoder passwordEncoder;
     private static final Key SECRET_KEY = Keys.secretKeyFor(SignatureAlgorithm.HS512);
     private static final long EXPIRATION_TIME = 3600_000; // 1 giờ (milliseconds)
     private static final String DEFAULT_AVATAR_URL = "http://localhost:8080/uploads/avatars/admin-avatar.png";
+
+    public AdminService(AdminRepository adminRepository,
+                        PasswordEncoder passwordEncoder) {
+        this.adminRepository = adminRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     public AdminResponse authenticateAdmin(AdminRequest request) {
         // Tìm user theo email
