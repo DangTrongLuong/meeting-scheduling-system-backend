@@ -23,8 +23,8 @@ public class MeetingService {
     private final MeetingRepository meetingRepository;
     private final MeetingRoomRepository meetingRoomRepository;
 
+    // Tạo cuộc họp
     public MeetingResponse createMeeting(CreateMeetingRequest request, String createdBy) {
-        // Kiểm tra logic thời gian
         if (request.getStartTime().isAfter(request.getEndTime())) {
             throw new IllegalArgumentException("Thời gian bắt đầu phải trước thời gian kết thúc");
         }
@@ -41,14 +41,13 @@ public class MeetingService {
             throw new IllegalArgumentException("Phòng họp đã được đặt trong khung giờ này");
         }
 
-        // Tạo mới meeting
         Meeting meeting = Meeting.builder()
                 .title(request.getTitle())
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
                 .room(room)
                 .createdBy(createdBy)
-                .invitedEmails(Collections.emptyList())
+                .invitedEmails(request.getInvitedEmails() != null ? request.getInvitedEmails() : Collections.emptyList())
                 .build();
 
         Meeting saved = meetingRepository.save(meeting);
