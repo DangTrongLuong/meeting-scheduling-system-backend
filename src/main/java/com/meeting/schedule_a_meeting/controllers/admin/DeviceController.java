@@ -18,18 +18,14 @@ public class DeviceController {
 
     private final DeviceService deviceService;
 
+    //  Tạo mới thiết bị
     @PostMapping
     public ResponseEntity<DeviceResponse> createDevice(@Valid @RequestBody DeviceRequest request) {
         DeviceResponse response = deviceService.createDevice(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDevice(@PathVariable Long id) {
-        deviceService.deleteDevice(id);
-        return ResponseEntity.noContent().build();
-    }
-
+    //  Cập nhật thiết bị theo ID
     @PutMapping("/{id}")
     public ResponseEntity<DeviceResponse> updateDevice(@PathVariable Long id,
                                                        @Valid @RequestBody DeviceRequest request) {
@@ -37,12 +33,21 @@ public class DeviceController {
         return ResponseEntity.ok(response);
     }
 
+    //  Xóa thiết bị theo ID
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteDevice(@PathVariable Long id) {
+        deviceService.deleteDevice(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    //  Lấy chi tiết thiết bị theo ID
     @GetMapping("/{id}")
     public ResponseEntity<DeviceResponse> getDeviceById(@PathVariable Long id) {
         DeviceResponse device = deviceService.getDeviceById(id);
         return ResponseEntity.ok(device);
     }
 
+    //  Lấy tất cả thiết bị
     @GetMapping
     public ResponseEntity<List<DeviceResponse>> getAllDevices() {
         List<DeviceResponse> devices = deviceService.getAllDevices();

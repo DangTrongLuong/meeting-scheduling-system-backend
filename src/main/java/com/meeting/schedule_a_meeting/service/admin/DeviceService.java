@@ -9,6 +9,7 @@ import com.meeting.schedule_a_meeting.mapper.admin.DeviceMapper;
 import com.meeting.schedule_a_meeting.repositories.DeviceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import java.util.Optional;
 
 import java.util.List;
 
@@ -18,24 +19,20 @@ public class DeviceService {
     private final DeviceRepository deviceRepository;
     private final DeviceMapper deviceMapper;
 
-
+    //  Tạo mới thiết bị (Add)
     public DeviceResponse createDevice(DeviceRequest request) {
-        // Tìm thiết bị theo tên
-        Device existingDevice = deviceRepository.findByName(request.getName()).orElse(null);
+        // Kiểm tra nếu đã có thiết bị cùng tên và cùng trạng thái
+        Optional<Device> existingDeviceOpt = deviceRepository.findByNameAndActive(request.getName(), request.isActive());
 
-        if (existingDevice != null) {
-            // Nếu tồn tại, cộng thêm số lượng
+        if (existingDeviceOpt.isPresent()) {
+            // Nếu tồn tại cùng tên và cùng trạng thái → cộng thêm số lượng
+            Device existingDevice = existingDeviceOpt.get();
             int newQuantity = existingDevice.getQuantity() + request.getQuantity();
             existingDevice.setQuantity(newQuantity);
-
-            // Cập nhật trạng thái active nếu có thay đổi
-            existingDevice.setActive(request.isActive());
-
-            // Lưu lại và trả về response
             return deviceMapper.toResponse(deviceRepository.save(existingDevice));
         }
 
-        // Nếu chưa tồn tại, tạo mới
+        // Nếu chưa tồn tại hoặc khác trạng thái → tạo mới
         Device device = deviceMapper.toEntity(request);
 
         // Nếu active chưa set thì mặc định true
@@ -51,6 +48,7 @@ public class DeviceService {
         return deviceMapper.toResponse(deviceRepository.save(device));
     }
 
+
     //  Xóa thiết bị
     public void deleteDevice(Long id) {
         if (!deviceRepository.existsById(id)) {
@@ -59,22 +57,46 @@ public class DeviceService {
         deviceRepository.deleteById(id);
     }
 
-    //  Cập nhật thiết bị
+    //  Cập nhật thiết bị (Edit)
     public DeviceResponse updateDevice(Long id, DeviceRequest request) {
         Device device = deviceRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorStatus.DEVICE_ALREADY_EXISTS));
+                .orElseThrow(() -> new AppException(ErrorStatus.DEVICE_NOT_FOUND));
 
-        // Nếu đổi tên sang tên khác đã tồn tại thì báo lỗi
-        if (!device.getName().equals(request.getName()) && deviceRepository.existsByName(request.getName())) {
-            throw new AppException(ErrorStatus.DEVICE_ALREADY_EXISTS);
+        boolean isActiveChanged = device.isActive() != request.isActive();
+
+        if (isActiveChanged) {
+            // Nếu đổi trạng thái → kiểm tra bản ghi cùng tên và trạng thái mới
+            Optional<Device> existing = deviceRepository.findByNameAndActive(request.getName(), request.isActive());
+            if (existing.isPresent()) {
+                // Nếu có → cộng quantity vào bản ghi đó
+                Device targetDevice = existing.get();
+                targetDevice.setQuantity(targetDevice.getQuantity() + request.getQuantity());
+
+                // ✅ Xóa bản ghi cũ
+                deviceRepository.delete(device);
+
+                return deviceMapper.toResponse(deviceRepository.save(targetDevice));
+            }
+
+            // Nếu chưa có → tạo bản ghi mới
+            Device newDevice = new Device();
+            newDevice.setName(request.getName());
+            newDevice.setQuantity(request.getQuantity());
+            newDevice.setActive(request.isActive());
+
+            //  Xóa bản ghi cũ
+            deviceRepository.delete(device);
+
+            return deviceMapper.toResponse(deviceRepository.save(newDevice));
         }
 
+        // Nếu không đổi trạng thái → update bình thường
         device.setName(request.getName());
-        device.setActive(request.isActive());
         device.setQuantity(request.getQuantity());
-
         return deviceMapper.toResponse(deviceRepository.save(device));
     }
+
+
 
     //  Lấy tất cả thiết bị
     public List<DeviceResponse> getAllDevices() {
@@ -86,7 +108,7 @@ public class DeviceService {
     //  Lấy chi tiết thiết bị theo ID
     public DeviceResponse getDeviceById(Long id) {
         Device device = deviceRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorStatus.DEVICE_ALREADY_EXISTS));
+                .orElseThrow(() -> new AppException(ErrorStatus.DEVICE_NOT_FOUND));
         return deviceMapper.toResponse(device);
     }
 }
