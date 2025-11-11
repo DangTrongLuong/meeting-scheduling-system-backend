@@ -62,7 +62,7 @@ public class MeetingService {
                 .build();
     }
 
-
+    // Lấy lịch phòng họp
     public List<TimeSlot> getMeetingRoomSchedule(MeetingRoomScheduleRequest request) {
         MeetingRoom room = meetingRoomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phòng họp"));
