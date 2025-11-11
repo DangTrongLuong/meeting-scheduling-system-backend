@@ -69,7 +69,7 @@ public class DeviceService {
                 Device targetDevice = existing.get();
                 targetDevice.setQuantity(targetDevice.getQuantity() + request.getQuantity());
 
-                // ✅ Xóa bản ghi cũ
+                //  Xóa bản ghi cũ
                 deviceRepository.delete(device);
 
                 return deviceMapper.toResponse(deviceRepository.save(targetDevice));
