@@ -10,46 +10,49 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/admin/devices")
 @RequiredArgsConstructor
 public class DeviceController {
+
     private final DeviceService deviceService;
 
+    //  Tạo mới thiết bị
     @PostMapping
     public ResponseEntity<DeviceResponse> createDevice(@Valid @RequestBody DeviceRequest request) {
         DeviceResponse response = deviceService.createDevice(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response); // 201 Created
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    //  Cập nhật thiết bị theo ID
+    @PutMapping("/{id}")
+    public ResponseEntity<DeviceResponse> updateDevice(@PathVariable Long id,
+                                                       @Valid @RequestBody DeviceRequest request) {
+        DeviceResponse response = deviceService.updateDevice(id, request);
+        return ResponseEntity.ok(response);
+    }
 
+    //  Xóa thiết bị theo ID
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteDevice(@PathVariable Long id) {
         deviceService.deleteDevice(id);
         return ResponseEntity.noContent().build();
-
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<DeviceResponse> updateDevice (@PathVariable Long id,
-                                                        @Valid @RequestBody DeviceRequest request){
-        DeviceResponse response = deviceService.updateDevice(id, request);
-        return ResponseEntity.ok(response);
-
-    }
-
+    //  Lấy chi tiết thiết bị theo ID
     @GetMapping("/{id}")
     public ResponseEntity<DeviceResponse> getDeviceById(@PathVariable Long id) {
         DeviceResponse device = deviceService.getDeviceById(id);
         return ResponseEntity.ok(device);
     }
 
-
+    // Lấy tất cả thiết bị
     @GetMapping
-    public ResponseEntity<List<DeviceResponse>> getAllDevices() {
-        List<DeviceResponse> devices = deviceService.getAllDevices();
-        return ResponseEntity.ok(devices); // 200 OK
+    public ResponseEntity<List<DeviceResponse>> getAllDevices(
+            @RequestParam(defaultValue = "name") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction) {
+        List<DeviceResponse> devices = deviceService.getAllDevices(sortBy, direction);
+        return ResponseEntity.ok(devices);
     }
 }

@@ -20,7 +20,7 @@ spring:
       enabled: true
   # MySQL
   datasource:
-    url: jdbc:mysql://localhost:3306/meeting_scheduling_system?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/meeting_scheduling_system
     username: root
     password: 573126a@
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -32,24 +32,28 @@ spring:
       initialization-fail-timeout: 0
       minimum-idle: 5
       idle-timeout: 600000
-
-    jpa:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
       hibernate:
-        ddl-auto: update
-      show-sql: true
-      properties:
-        hibernate:
-          dialect: org.hibernate.dialect.MySQL8Dialect
+        connection:
+          characterEncoding: utf8mb4
+          useUnicode: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
 
-
-    # Google OAuth2
+  # Google OAuth2
   security:
     oauth2:
       client:
         registration:
           google:
+            #            client-id: ${GOOGLE_CLIENT_ID}
+            #            client-secret: ${GOOGLE_CLIENT_SECRET}
 #            client-id: 732859314325-c0vvm2ors0mflkb8be4igt0navih871u.apps.googleusercontent.com
 #            client-secret: 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
+
             scope: openid,profile,email
             redirect-uri: http://localhost:8080/login/oauth2/code/google
             authorization-grant-type: authorization_code
@@ -66,8 +70,11 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
+    #    username: ${EMAIL_USERNAME}
+    #    password: ${EMAIL_PASSWORD}
     username: dangtrongluong4@gmail.com
     password: gmnf ihiq wegq prbv
+
     protocol: smtp
     properties:
       mail:
