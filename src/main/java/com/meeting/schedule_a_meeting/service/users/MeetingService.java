@@ -3,7 +3,9 @@ package com.meeting.schedule_a_meeting.service.users;
 import com.meeting.schedule_a_meeting.dto.request.users.CreateMeetingRequest;
 import com.meeting.schedule_a_meeting.dto.response.users.MeetingResponse;
 import com.meeting.schedule_a_meeting.entities.Meeting;
+import com.meeting.schedule_a_meeting.entities.MeetingRoom;
 import com.meeting.schedule_a_meeting.repositories.MeetingRepository;
+import com.meeting.schedule_a_meeting.repositories.MeetingRoomRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +17,7 @@ import java.util.List;
 public class MeetingService {
 
     private final MeetingRepository meetingRepository;
+    private final MeetingRoomRepository meetingRoomRepository;
 
     public MeetingResponse createMeeting(CreateMeetingRequest request, String createdBy) {
         // Kiểm tra logic thời gian
@@ -22,10 +25,15 @@ public class MeetingService {
             throw new IllegalArgumentException("Thời gian bắt đầu phải trước thời gian kết thúc");
         }
 
+        // Truy xuất phòng họp từ tên
+        MeetingRoom room = meetingRoomRepository.findByName(request.getRoom())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phòng họp với tên đã cung cấp"));
+
+
         // Kiểm tra trùng phòng
         List<Meeting> conflicts = meetingRepository
                 .findByRoomAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
-                        request.getRoom(), request.getEndTime(), request.getStartTime());
+                        room, request.getEndTime(), request.getStartTime());
 
         if (!conflicts.isEmpty()) {
             throw new IllegalArgumentException("Phòng họp đã được đặt trong khung giờ này");
@@ -36,7 +44,7 @@ public class MeetingService {
                 .title(request.getTitle())
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
-                .room(request.getRoom())
+                .room(room)
                 .createdBy(createdBy)
                 .invitedEmails(Collections.emptyList())
                 .build();
@@ -48,7 +56,7 @@ public class MeetingService {
                 .title(saved.getTitle())
                 .startTime(saved.getStartTime())
                 .endTime(saved.getEndTime())
-                .room(saved.getRoom())
+                .room(saved.getRoom().getName())
                 .createdBy(saved.getCreatedBy())
                 .invitedEmails(saved.getInvitedEmails())
                 .build();
