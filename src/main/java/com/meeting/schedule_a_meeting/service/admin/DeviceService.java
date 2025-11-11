@@ -18,7 +18,7 @@ public class DeviceService {
     private final DeviceRepository deviceRepository;
     private final DeviceMapper deviceMapper;
 
-    // ✅ Tạo hoặc cập nhật thiết bị nếu tên đã tồn tại
+
     public DeviceResponse createDevice(DeviceRequest request) {
         // Tìm thiết bị theo tên
         Device existingDevice = deviceRepository.findByName(request.getName()).orElse(null);
@@ -51,7 +51,7 @@ public class DeviceService {
         return deviceMapper.toResponse(deviceRepository.save(device));
     }
 
-    // ✅ Xóa thiết bị
+    //  Xóa thiết bị
     public void deleteDevice(Long id) {
         if (!deviceRepository.existsById(id)) {
             throw new AppException(ErrorStatus.DEVICE_NOT_FOUND);
@@ -59,7 +59,7 @@ public class DeviceService {
         deviceRepository.deleteById(id);
     }
 
-    // ✅ Cập nhật thiết bị
+    //  Cập nhật thiết bị
     public DeviceResponse updateDevice(Long id, DeviceRequest request) {
         Device device = deviceRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorStatus.DEVICE_ALREADY_EXISTS));
@@ -76,14 +76,14 @@ public class DeviceService {
         return deviceMapper.toResponse(deviceRepository.save(device));
     }
 
-    // ✅ Lấy tất cả thiết bị
+    //  Lấy tất cả thiết bị
     public List<DeviceResponse> getAllDevices() {
         return deviceRepository.findAll().stream()
                 .map(deviceMapper::toResponse)
                 .toList();
     }
 
-    // ✅ Lấy chi tiết thiết bị theo ID
+    //  Lấy chi tiết thiết bị theo ID
     public DeviceResponse getDeviceById(Long id) {
         Device device = deviceRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorStatus.DEVICE_ALREADY_EXISTS));
