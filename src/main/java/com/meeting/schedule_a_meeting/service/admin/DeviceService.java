@@ -10,6 +10,7 @@ import com.meeting.schedule_a_meeting.repositories.DeviceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.util.Optional;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 
@@ -69,7 +70,7 @@ public class DeviceService {
                 Device targetDevice = existing.get();
                 targetDevice.setQuantity(targetDevice.getQuantity() + request.getQuantity());
 
-                // ✅ Xóa bản ghi cũ
+                //  Xóa bản ghi cũ
                 deviceRepository.delete(device);
 
                 return deviceMapper.toResponse(deviceRepository.save(targetDevice));
@@ -96,11 +97,14 @@ public class DeviceService {
 
 
     //  Lấy tất cả thiết bị
-    public List<DeviceResponse> getAllDevices() {
-        return deviceRepository.findAll().stream()
+
+    public List<DeviceResponse> getAllDevices(String sortBy, String direction) {
+        Sort sort = direction.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        return deviceRepository.findAll(sort).stream()
                 .map(deviceMapper::toResponse)
                 .toList();
     }
+
 
     //  Lấy chi tiết thiết bị theo ID
     public DeviceResponse getDeviceById(Long id) {

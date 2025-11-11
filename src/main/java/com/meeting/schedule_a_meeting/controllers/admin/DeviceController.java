@@ -47,10 +47,12 @@ public class DeviceController {
         return ResponseEntity.ok(device);
     }
 
-    //  Lấy tất cả thiết bị
+    // Lấy tất cả thiết bị
     @GetMapping
-    public ResponseEntity<List<DeviceResponse>> getAllDevices() {
-        List<DeviceResponse> devices = deviceService.getAllDevices();
+    public ResponseEntity<List<DeviceResponse>> getAllDevices(
+            @RequestParam(defaultValue = "name") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction) {
+        List<DeviceResponse> devices = deviceService.getAllDevices(sortBy, direction);
         return ResponseEntity.ok(devices);
     }
 }
