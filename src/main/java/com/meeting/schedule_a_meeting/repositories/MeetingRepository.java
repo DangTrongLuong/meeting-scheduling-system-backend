@@ -11,10 +11,8 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
 
 
     List<Meeting> findByRoomAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
-            MeetingRoom room, LocalDateTime endTime, LocalDateTime startTime);
-
-
-    List<Meeting> findByRoomAndStartTimeBetween(
-            MeetingRoom room, LocalDateTime start, LocalDateTime end);
+            MeetingRoom room,
+            LocalDateTime startTime,
+            LocalDateTime endTime);
 }
 

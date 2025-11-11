@@ -30,8 +30,9 @@ public class MeetingService {
         }
 
         MeetingRoom room = meetingRoomRepository.findById(request.getRoomId())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phòng họp với ID đã cung cấp"));
-
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Không tìm thấy phòng họp với ID: " + request.getRoomId()));
+        // Kiểm tra trùng phòng
         List<Meeting> conflicts = meetingRepository
                 .findByRoomAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
                         room, request.getEndTime(), request.getStartTime());
@@ -62,32 +63,32 @@ public class MeetingService {
                 .build();
     }
 
-    // Lấy lịch phòng họp
     public List<TimeSlot> getMeetingRoomSchedule(MeetingRoomScheduleRequest request) {
         MeetingRoom room = meetingRoomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phòng họp"));
 
-        List<Meeting> meetings = meetingRepository.findByRoomAndStartTimeBetween(
-                room,
-                request.getStartDate().atStartOfDay(),
-                request.getEndDate().atTime(23, 59, 59)
-        );
+        LocalDateTime dayStart = request.getStartDate().atStartOfDay();
+        LocalDateTime dayEnd = dayStart.plusDays(1);
+
+        List<Meeting> bookedMeetings = meetingRepository
+                .findByRoomAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(room, dayStart, dayEnd);
 
         List<TimeSlot> slots = new ArrayList<>();
-        for (Meeting meeting : meetings) {
-            slots.add(new TimeSlot(
-                    meeting.getStartTime(),
-                    meeting.getEndTime(),
-                    false,  // available
-                    ""      // note
-            ));
+        LocalDateTime slotStart = dayStart.withHour(0).withMinute(0);
+
+        while (slotStart.isBefore(dayEnd)) {
+            LocalDateTime slotEnd = slotStart.plusMinutes(30);
+
+            final LocalDateTime currentStart = slotStart;
+            final LocalDateTime currentEnd = slotEnd;
+
+            boolean isBooked = bookedMeetings.stream()
+                    .anyMatch(m -> !currentEnd.isBefore(m.getStartTime()) && !currentStart.isAfter(m.getEndTime()));
+
+            slots.add(new TimeSlot(slotStart, slotEnd, !isBooked, ""));
+            slotStart = slotEnd;
         }
 
         return slots;
     }
 }
-
-
-
-
-
