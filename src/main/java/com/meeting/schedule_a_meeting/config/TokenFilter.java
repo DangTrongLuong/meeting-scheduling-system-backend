@@ -39,7 +39,8 @@ public class TokenFilter extends OncePerRequestFilter {
         if (path.startsWith("/api/auth/")
                 || path.equals("/")
                 || path.startsWith("/uploads/")
-                || path.startsWith("/api/admin/")) {
+                || path.startsWith("/api/admin/")
+                || path.startsWith("/api/users/")){
             filterChain.doFilter(request, response);
             return;
         }
