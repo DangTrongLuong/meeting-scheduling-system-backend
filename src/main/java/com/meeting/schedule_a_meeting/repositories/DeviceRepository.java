@@ -8,6 +8,12 @@ import java.util.Optional;
 
 @Repository
 public interface DeviceRepository extends JpaRepository<Device, Long> {
-    boolean existsByName(String name);
-    Optional<Device> findByName(String name);
+
+    // Giữ nguyên các method bạn đã có
+    boolean existsByNameAndIdNot(String name, Long id);
+    Optional<Device> findByNameAndActive(String name, boolean active);
+
+    // Thêm các method cần thiết
+    Optional<Device> findByName(String name); // Tìm theo tên
+    boolean existsByName(String name);       // Kiểm tra tồn tại theo tên
 }
