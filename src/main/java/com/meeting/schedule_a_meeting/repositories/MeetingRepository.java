@@ -11,5 +11,7 @@ import java.util.List;
 @Repository
 public interface MeetingRepository extends JpaRepository<Meeting, Long> {
     List<Meeting> findByRoomAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
-            MeetingRoom room, LocalDateTime endTime, LocalDateTime startTime);
+            MeetingRoom room,
+            LocalDateTime startTime,
+            LocalDateTime endTime);
 }
