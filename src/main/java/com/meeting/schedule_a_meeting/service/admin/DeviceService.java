@@ -35,10 +35,7 @@ public class DeviceService {
         // Nếu chưa tồn tại hoặc khác trạng thái → tạo mới
         Device device = deviceMapper.toEntity(request);
 
-        // Nếu active chưa set thì mặc định true
-        if (!device.isActive()) {
-            device.setActive(true);
-        }
+
 
         // Nếu quantity < 0 thì set về 0
         if (device.getQuantity() < 0) {
