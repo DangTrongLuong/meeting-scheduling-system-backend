@@ -2,6 +2,7 @@ package com.meeting.schedule_a_meeting.dto.request.users;
 
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -12,5 +13,6 @@ public class CreateMeetingRequest {
     private String title;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
-    private String room;
+    private Long roomId;
+    private List<String> invitedEmails;
 }
