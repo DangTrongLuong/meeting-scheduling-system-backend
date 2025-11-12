@@ -42,7 +42,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").permitAll()
                         .requestMatchers("/api/admin/rooms/**").permitAll()
                         .requestMatchers("/api/admin/devices/**").permitAll()
-                        .requestMatchers("/api/users/meetings/**").permitAll()
+                        .requestMatchers("/api/meetings/**").permitAll()
 
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
