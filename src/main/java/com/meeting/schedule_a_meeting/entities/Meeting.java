@@ -34,11 +34,11 @@ public class Meeting {
     @ElementCollection
     @CollectionTable(name = "meeting_invitations", joinColumns = @JoinColumn(name = "meeting_id"))
     @Column(name = "email")
-    private List<String> invitedEmails; // ✅ Ensure List<String>
+    private List<String> invitedEmails;
 
     @Column(name = "created_by", nullable = false)
     private String createdBy;
 
     @Column(name = "status", nullable = false)
-    private String status; // ✅ Added status field
+    private String status = "ACTIVE"; // Default value: ACTIVE, can be CANCELLED
 }
