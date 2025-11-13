@@ -15,5 +15,6 @@ public class CreateMeetingRequest {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private Long roomId;
+    private String status;
     private List<String> invitedEmails;
 }
