@@ -49,10 +49,10 @@ spring:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
-            #            client-id: 732859314325-c0vvm2ors0mflkb8be4igt0navih871u.apps.googleusercontent.com
-            #            client-secret: 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
+            #            client-id: ${GOOGLE_CLIENT_ID}
+            #            client-secret: ${GOOGLE_CLIENT_SECRET}
+            client-id: 732859314325-c0vvm2ors0mflkb8be4igt0navih871u.apps.googleusercontent.com
+            client-secret: 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
 
             scope: openid,profile,email
             redirect-uri: http://localhost:8080/login/oauth2/code/google
@@ -72,8 +72,8 @@ spring:
     port: 587
     #    username: ${EMAIL_USERNAME}
     #    password: ${EMAIL_PASSWORD}
-    # username: dangtrongluong4@gmail.com
-    # password: gmnf ihiq wegq prbv
+    username: dangtrongluong4@gmail.com
+    password: gmnf ihiq wegq prbv
 
     protocol: smtp
     properties:

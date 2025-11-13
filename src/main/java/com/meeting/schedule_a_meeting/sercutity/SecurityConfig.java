@@ -28,48 +28,45 @@ public class SecurityConfig {
     @Autowired
     private TokenFilter tokenFilter;
 
-
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                // Disable CSRF for APIs
+    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
+        httpSecurity
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(Customizer.withDefaults())
-                // Stateless session for APIs
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // Add custom token filter before UsernamePasswordAuthenticationFilter
+                .cors(Customizer.withDefaults()) // Sử dụng cấu hình CORS từ CorsConfig
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class)
-                // Authorization rules
-                .authorizeHttpRequests(auth -> auth
+                .authorizeHttpRequests(requests -> requests
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()       // Auth endpoints
-                        .requestMatchers("/api/meetings/**").permitAll()   // ✅ Public meetings API
-                        .requestMatchers("/api/admin/**").authenticated()  // Admin protected
-                        .anyRequest().authenticated()
-                )
-                // OAuth2 Login for Google
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/admin/**").permitAll()
+                        .requestMatchers("/api/admin/rooms/**").permitAll()
+                        .requestMatchers("/api/admin/devices/**").permitAll()
+                        .requestMatchers("/api/meetings/**").permitAll()
+
+                        .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         .loginPage("/api/auth/login/google")
-                        .authorizationEndpoint(authorization -> authorization.baseUri("/oauth2/authorization"))
-                        .redirectionEndpoint(redirection -> redirection.baseUri("/login/oauth2/code/*"))
+                        .authorizationEndpoint(authorization -> authorization
+                                .baseUri("/oauth2/authorization"))
+                        .redirectionEndpoint(redirection -> redirection
+                                .baseUri("/login/oauth2/code/*"))
                         .defaultSuccessUrl("/api/auth/loginSuccess", true)
-                        .failureUrl("/api/auth/login/google?error=true")
-                )
+                        // .successHandler(customSuccessHandler)
+                        .failureUrl("/api/auth/login/google?error=true"))
                 .oauth2Client(Customizer.withDefaults())
-                // Logout configuration
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")
                         .logoutSuccessUrl("http://localhost:5173/")
+
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
+
                         .deleteCookies("JSESSIONID")
-                        .permitAll()
-                );
+                        .permitAll());
 
-        return http.build();
+        return httpSecurity.build();
     }
-
 
     @Bean
     public PasswordEncoder passwordEncoder() {
