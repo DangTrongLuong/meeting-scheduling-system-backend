@@ -27,4 +27,13 @@ public class MeetingController {
     public List<TimeSlot> getMeetingRoomSchedule(@RequestBody MeetingRoomScheduleRequest request) {
         return meetingService.getMeetingRoomSchedule(request);
     }
+    @DeleteMapping("/cancel/{id}")
+    public String cancelMeeting(@PathVariable Long id,
+                                @RequestHeader("createdBy") String createdBy) {
+        meetingService.cancelMeeting(id, createdBy);
+        return "The conversation was successfully canceled.!";
+    }
+
 }
+
+

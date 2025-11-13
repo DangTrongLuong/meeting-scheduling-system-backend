@@ -46,6 +46,7 @@ public class MeetingService {
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
                 .room(room)
+                .status(request.getStatus())
                 .createdBy(createdBy)
                 .invitedEmails(request.getInvitedEmails() != null ? request.getInvitedEmails() : Collections.emptyList())
                 .build();
@@ -59,6 +60,7 @@ public class MeetingService {
                 .endTime(saved.getEndTime())
                 .roomName(saved.getRoom().getName())
                 .createdBy(saved.getCreatedBy())
+                .status(request.getStatus())
                 .invitedEmails(saved.getInvitedEmails())
                 .build();
     }
@@ -91,4 +93,18 @@ public class MeetingService {
 
         return slots;
     }
+    public void cancelMeeting(Long meetingId, String createdBy) {
+        Meeting meeting = meetingRepository.findById(meetingId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cuộc họp với ID: " + meetingId));
+
+        // Kiểm tra quyền hủy
+        if (!meeting.getCreatedBy().equals(createdBy)) {
+            throw new IllegalArgumentException("Bạn không có quyền hủy cuộc họp này");
+        }
+
+        // Xóa cuộc họp
+        meetingRepository.delete(meeting);
+    }
 }
+
+
