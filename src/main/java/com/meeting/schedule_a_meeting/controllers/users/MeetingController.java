@@ -33,6 +33,11 @@ public class MeetingController {
         meetingService.cancelMeeting(id, createdBy);
         return "The conversation was successfully canceled.!";
     }
+    @GetMapping("/{id}")
+    public MeetingResponse getMeetingDetail(@PathVariable Long id) {
+        return meetingService.getMeetingDetail(id);
+    }
+
 
 }
 

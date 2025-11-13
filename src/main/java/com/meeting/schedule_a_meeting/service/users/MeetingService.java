@@ -105,6 +105,21 @@ public class MeetingService {
         // Xóa cuộc họp
         meetingRepository.delete(meeting);
     }
+
+    public MeetingResponse getMeetingDetail(Long id) {
+        Meeting meeting = meetingRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cuộc họp"));
+        return MeetingResponse.builder()
+                .id(meeting.getId())
+                .title(meeting.getTitle())
+                .startTime(meeting.getStartTime())
+                .endTime(meeting.getEndTime())
+                .roomName(meeting.getRoom().getName())
+                .createdBy(meeting.getCreatedBy())
+                .invitedEmails(meeting.getInvitedEmails())
+                .status(meeting.getStatus())
+                .build();
+    }
 }
 
 
