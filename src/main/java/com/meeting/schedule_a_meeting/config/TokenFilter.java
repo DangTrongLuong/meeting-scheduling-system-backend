@@ -15,7 +15,7 @@ import java.security.Key;
 @Component
 public class TokenFilter extends OncePerRequestFilter {
 
-    // Use a secure key from application properties in production
+    // TODO: Load from application.yml instead of hardcoding
     private static final Key SECRET_KEY = Keys.secretKeyFor(io.jsonwebtoken.SignatureAlgorithm.HS512);
 
     @Override
