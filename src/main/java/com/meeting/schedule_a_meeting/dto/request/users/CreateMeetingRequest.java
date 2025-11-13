@@ -17,4 +17,5 @@ public class CreateMeetingRequest {
     private Long roomId;
     private String status;
     private List<String> invitedEmails;
+    private String status;
 }
