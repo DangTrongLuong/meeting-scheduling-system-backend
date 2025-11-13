@@ -14,13 +14,11 @@ import java.util.List;
 @Builder
 public class Meeting {
 
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
     private Long id;
 
-    @Column(name = "title", nullable = false, length = 255)
+    @Column(nullable = false, length = 255)
     private String title;
 
     @Column(name = "start_time", nullable = false)
@@ -29,16 +27,18 @@ public class Meeting {
     @Column(name = "end_time", nullable = false)
     private LocalDateTime endTime;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_id", nullable = false)
     private MeetingRoom room;
 
     @ElementCollection
     @CollectionTable(name = "meeting_invitations", joinColumns = @JoinColumn(name = "meeting_id"))
     @Column(name = "email")
-    private List<String> invitedEmails;
+    private List<String> invitedEmails; // ✅ Ensure List<String>
 
     @Column(name = "created_by", nullable = false)
     private String createdBy;
 
+    @Column(name = "status", nullable = false)
+    private String status; // ✅ Added status field
 }

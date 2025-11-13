@@ -18,4 +18,5 @@ public class MeetingResponse {
     private String roomName;
     private String createdBy;
     private List<String> invitedEmails;
+    private String status;
 }
