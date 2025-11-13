@@ -14,7 +14,6 @@ import java.util.List;
 @Builder
 public class Meeting {
 
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
@@ -41,4 +40,6 @@ public class Meeting {
     @Column(name = "created_by", nullable = false)
     private String createdBy;
 
+    @Column(name= "status",nullable = false)
+    private String status = "ACTIVE"; // ACTIVE, CANCELLED
 }
