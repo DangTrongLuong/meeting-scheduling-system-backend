@@ -1,14 +1,9 @@
 package com.meeting.schedule_a_meeting.dto.response.users;
 
+import lombok.*;
+import lombok.experimental.FieldDefaults;
 import java.time.LocalDate;
 import java.util.UUID;
-
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.experimental.FieldDefaults;
 
 @Data
 @NoArgsConstructor
@@ -24,9 +19,7 @@ public class AuthenticationResponse {
     private String email;
     private String avatarUrl;
     private String role;
-    private int age;
-    private String address;
-    private LocalDate createdAt;
     private String backgroundUrl;
+    private LocalDate createdAt;
     private String authProvider;
 }

@@ -1,101 +1,75 @@
 package com.meeting.schedule_a_meeting.config;
 
-import java.io.IOException;
-import java.security.Key;
-
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
 
-
-
-
-
+import java.io.IOException;
 
 @Component
 public class TokenFilter extends OncePerRequestFilter {
 
+    private final JwtTokenUtil jwtTokenUtil;
 
-    private static final Key SECRET_KEY = Keys.secretKeyFor(io.jsonwebtoken.SignatureAlgorithm.HS512);
+    public TokenFilter(JwtTokenUtil jwtTokenUtil) {
+        this.jwtTokenUtil = jwtTokenUtil;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-
         String path = request.getRequestURI();
         String method = request.getMethod();
 
-        // Xử lý preflight (OPTIONS)
+        // Allow preflight requests
         if ("OPTIONS".equalsIgnoreCase(method)) {
             response.setStatus(HttpServletResponse.SC_OK);
-            response.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
-
             return;
         }
 
-        // Bỏ qua các endpoint công khai
-        if (path.startsWith("/api/auth/")
-                || path.equals("/")
-                || path.startsWith("/uploads/")
-                || path.startsWith("/api/admin/")
-                || path.startsWith("/api/users/")
-                || path.startsWith("/api/meetings/"))
-                {
+        // Skip public endpoints
+        if (isPublicEndpoint(path)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-
+        // Validate JWT token
         String authHeader = request.getHeader("Authorization");
-        String userId = request.getHeader("userId");
-        String userName = request.getHeader("userName");
-        String role = request.getHeader("role");
-
-
-        if (path.startsWith("/api/admin/") && !"ADMIN".equals(role)) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied: Admin role required");
-            return;
-        }
-
-
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String accessToken = authHeader.substring(7);
-            if (!accessToken.isEmpty()) {
-                try {
-                    // Validate JWT token
-                    Jwts.parserBuilder()
-                            .setSigningKey(SECRET_KEY)
-                            .build()
-                            .parseClaimsJws(accessToken);
-                    request.setAttribute("userId", userId);
-                    request.setAttribute("userName", userName);
-                    request.setAttribute("role", role);
-                    filterChain.doFilter(request, response);
-                    return;
-                } catch (Exception e) {
-                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid JWT token: " + e.getMessage());
+            String token = authHeader.substring(7);
+            if (jwtTokenUtil.validateToken(token)) {
+                Claims claims = jwtTokenUtil.extractClaims(token);
+
+                // Attach user info to request
+                request.setAttribute("userId", claims.get("userId"));
+                request.setAttribute("role", claims.get("role"));
+                request.setAttribute("email", claims.getSubject());
+
+                // Role-based check for admin endpoints
+                if (path.startsWith("/api/admin/") && !"ADMIN".equals(claims.get("role"))) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied: Admin role required");
                     return;
                 }
-            }
-        } else if (userId != null && userName != null) {
-            // Cho phép nếu có userId và userName trong header (dùng session không đáng tin
-            // cậy)
 
-            request.setAttribute("userId", userId);
-            request.setAttribute("userName", userName);
-            request.setAttribute("role", role);
-            filterChain.doFilter(request, response);
-            return;
+                filterChain.doFilter(request, response);
+                return;
+            }
         }
 
-
+        // If token is missing or invalid
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing or invalid token");
+    }
+
+    private boolean isPublicEndpoint(String path) {
+        return path.startsWith("/api/auth/")
+                || path.equals("/")
+                || path.startsWith("/uploads/")
+                || path.startsWith("/api/public/")
+                || path.startsWith("/api/meetings/");
     }
 }
