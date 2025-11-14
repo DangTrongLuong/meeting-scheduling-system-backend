@@ -30,9 +30,9 @@ public class MeetingService {
         }
 
         MeetingRoom room = meetingRoomRepository.findById(request.getRoomId())
-                .orElseThrow(() -> new IllegalArgumentException("Meeting room not found with ID: " + request.getRoomId()));
-
-        // Check for conflicts
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Không tìm thấy phòng họp với ID: " + request.getRoomId()));
+        // Kiểm tra trùng phòng
         List<Meeting> conflicts = meetingRepository
                 .findByRoomAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
                         room, request.getEndTime(), request.getStartTime());

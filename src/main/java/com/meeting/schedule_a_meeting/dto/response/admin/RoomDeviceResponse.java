@@ -1,14 +1,17 @@
 package com.meeting.schedule_a_meeting.dto.response.admin;
 
-import lombok.AllArgsConstructor;
+import com.meeting.schedule_a_meeting.enums.RoomDeviceStatus;
+import lombok.Builder;
 import lombok.Data;
 
 @Data
-@AllArgsConstructor
+@Builder
 public class RoomDeviceResponse {
-    private Long id;
+    private String id;
+    private String meetingRoom;
     private String roomName;
+    private String device;
     private String deviceName;
     private int quantity;
-    private String status;
+    private RoomDeviceStatus status;
 }

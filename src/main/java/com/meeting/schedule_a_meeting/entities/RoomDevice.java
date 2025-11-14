@@ -2,32 +2,39 @@ package com.meeting.schedule_a_meeting.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
-import lombok.experimental.FieldDefaults;
+import com.meeting.schedule_a_meeting.enums.RoomDeviceStatus;
+import com.meeting.schedule_a_meeting.util.IdGenerator;
 
 @Entity
 @Table(name = "room_devices")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@FieldDefaults(level = AccessLevel.PRIVATE)
 public class RoomDevice {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Long id;
+    @Column(length = 8, updatable = false)
+    private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "meeting_room_id", nullable = false)
-    MeetingRoom meetingRoom;
+    @JoinColumn(name = "room_id", nullable = false)
+    private MeetingRoom meetingRoom;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "device_id", nullable = false)
-    Device device;
+    private Device device;
 
     @Column(nullable = false)
-    int quantity; // số lượng thiết bị gán cho phòng
+    private int quantity;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    String status; // ACTIVE hoặc IN_USE
+    private RoomDeviceStatus status = RoomDeviceStatus.IN_USE;
+
+    @PrePersist
+    private void generateId() {
+        this.id = IdGenerator.generate("RD");
+    }
 }

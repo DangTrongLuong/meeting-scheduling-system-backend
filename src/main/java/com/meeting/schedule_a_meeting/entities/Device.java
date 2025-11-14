@@ -2,27 +2,42 @@ package com.meeting.schedule_a_meeting.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
-import lombok.experimental.FieldDefaults;
+import com.meeting.schedule_a_meeting.enums.DeviceStatus;
+import com.meeting.schedule_a_meeting.util.IdGenerator;
 
 @Entity
-@Table(name = "devices")
-@Data
+@Table(name = "devices", uniqueConstraints = @UniqueConstraint(columnNames = { "name", "status" }))
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@FieldDefaults(level = AccessLevel.PRIVATE)
 public class Device {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Long id;
-
-    @Column(nullable = false, unique = true)
-    String name;
+    @Column(length = 8, updatable = false)
+    private String id;
 
     @Column(nullable = false)
-    boolean active = true;
+    private String name;
 
+    @Column(name = "image_path")
+    private String imagePath;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    int quantity = 0;
+    private DeviceStatus status = DeviceStatus.ACTIVE;
+
+    @Column(name = "total_quantity", nullable = false)
+    private int totalQuantity = 0;
+
+    @Column(name = "available_quantity", nullable = false)
+    private int availableQuantity = 0;
+
+    @PrePersist
+    private void generateId() {
+        this.id = IdGenerator.generate("DV");
+        if (this.availableQuantity == 0)
+            this.availableQuantity = this.totalQuantity;
+    }
 }

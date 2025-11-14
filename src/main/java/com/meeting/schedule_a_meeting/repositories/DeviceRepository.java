@@ -1,19 +1,24 @@
 package com.meeting.schedule_a_meeting.repositories;
 
 import com.meeting.schedule_a_meeting.entities.Device;
+import com.meeting.schedule_a_meeting.enums.DeviceStatus;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface DeviceRepository extends JpaRepository<Device, Long> {
+public interface DeviceRepository extends JpaRepository<Device, String> {
 
-    // Giữ nguyên các method bạn đã có
-    boolean existsByNameAndIdNot(String name, Long id);
-    Optional<Device> findByNameAndActive(String name, boolean active);
+    boolean existsByNameAndIdNot(String name, String id);
 
-    // Thêm các method cần thiết
-    Optional<Device> findByName(String name); // Tìm theo tên
-    boolean existsByName(String name);       // Kiểm tra tồn tại theo tên
+    Optional<Device> findByName(String name);
+
+    boolean existsByName(String name);
+
+    Optional<Device> findByNameAndStatus(String name, DeviceStatus status);
+
+    boolean existsByNameAndStatus(String name, DeviceStatus status);
 }

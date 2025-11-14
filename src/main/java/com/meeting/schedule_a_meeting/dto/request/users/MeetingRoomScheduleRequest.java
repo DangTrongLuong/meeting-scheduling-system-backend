@@ -9,7 +9,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Builder
 public class MeetingRoomScheduleRequest {
-    private Long roomId;
+    private String roomId;
     private LocalDate startDate;
     private LocalDate endDate;
 }

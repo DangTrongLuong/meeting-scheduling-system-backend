@@ -10,7 +10,11 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface MeetingRoomRepository extends JpaRepository<MeetingRoom, Long> {
+public interface MeetingRoomRepository extends JpaRepository<MeetingRoom, String> {
     Optional<MeetingRoom> findByName(String name);
+
+    Optional<MeetingRoom> findById(String id);
+
+    boolean existsByName(String name);
 
 }
