@@ -13,6 +13,6 @@ public class CreateMeetingRequest {
     private String title;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
-    private Long roomId;
+    private String roomId;
     private List<String> invitedEmails;
 }

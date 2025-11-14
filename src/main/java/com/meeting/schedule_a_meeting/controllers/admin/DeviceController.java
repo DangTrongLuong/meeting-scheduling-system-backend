@@ -1,10 +1,13 @@
 package com.meeting.schedule_a_meeting.controllers.admin;
 
-import com.meeting.schedule_a_meeting.dto.request.admin.DeviceRequest;
+import com.meeting.schedule_a_meeting.dto.request.admin.DeviceCreateRequest;
+import com.meeting.schedule_a_meeting.dto.request.admin.DeviceUpdateRequest;
 import com.meeting.schedule_a_meeting.dto.response.admin.DeviceResponse;
+import com.meeting.schedule_a_meeting.enums.DeviceStatus;
 import com.meeting.schedule_a_meeting.service.admin.DeviceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,43 +19,40 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DeviceController {
 
-    private final DeviceService deviceService;
+    private final DeviceService service;
 
-    //  Tạo mới thiết bị
-    @PostMapping
-    public ResponseEntity<DeviceResponse> createDevice(@Valid @RequestBody DeviceRequest request) {
-        DeviceResponse response = deviceService.createDevice(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<DeviceResponse> create(@Valid @ModelAttribute DeviceCreateRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
     }
 
-    //  Cập nhật thiết bị theo ID
-    @PutMapping("/{id}")
-    public ResponseEntity<DeviceResponse> updateDevice(@PathVariable Long id,
-                                                       @Valid @RequestBody DeviceRequest request) {
-        DeviceResponse response = deviceService.updateDevice(id, request);
-        return ResponseEntity.ok(response);
-    }
-
-    //  Xóa thiết bị theo ID
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDevice(@PathVariable Long id) {
-        deviceService.deleteDevice(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    //  Lấy chi tiết thiết bị theo ID
     @GetMapping("/{id}")
-    public ResponseEntity<DeviceResponse> getDeviceById(@PathVariable Long id) {
-        DeviceResponse device = deviceService.getDeviceById(id);
-        return ResponseEntity.ok(device);
+    public ResponseEntity<DeviceResponse> getById(@PathVariable String id) {
+        return ResponseEntity.ok(service.getById(id));
     }
 
-    // Lấy tất cả thiết bị
     @GetMapping
-    public ResponseEntity<List<DeviceResponse>> getAllDevices(
+    public ResponseEntity<List<DeviceResponse>> getAll(
             @RequestParam(defaultValue = "name") String sortBy,
             @RequestParam(defaultValue = "asc") String direction) {
-        List<DeviceResponse> devices = deviceService.getAllDevices(sortBy, direction);
-        return ResponseEntity.ok(devices);
+        return ResponseEntity.ok(service.getAll(sortBy, direction));
+    }
+
+    @GetMapping("/status/{status}")
+    public ResponseEntity<List<DeviceResponse>> getByStatus(@PathVariable DeviceStatus status) {
+        return ResponseEntity.ok(service.getByStatus(status));
+    }
+
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<DeviceResponse> update(
+            @PathVariable String id,
+            @Valid @ModelAttribute DeviceUpdateRequest request) {
+        return ResponseEntity.ok(service.update(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable String id) {
+        service.delete(id);
+        return ResponseEntity.noContent().build();
     }
 }

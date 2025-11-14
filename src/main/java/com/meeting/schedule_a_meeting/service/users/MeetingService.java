@@ -1,7 +1,9 @@
 package com.meeting.schedule_a_meeting.service.users;
 
 import com.meeting.schedule_a_meeting.dto.request.users.CreateMeetingRequest;
+import com.meeting.schedule_a_meeting.dto.request.users.MeetingRoomScheduleRequest;
 import com.meeting.schedule_a_meeting.dto.response.users.MeetingResponse;
+import com.meeting.schedule_a_meeting.dto.response.users.TimeSlot;
 import com.meeting.schedule_a_meeting.entities.Meeting;
 import com.meeting.schedule_a_meeting.entities.MeetingRoom;
 import com.meeting.schedule_a_meeting.repositories.MeetingRepository;
@@ -9,6 +11,8 @@ import com.meeting.schedule_a_meeting.repositories.MeetingRoomRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -25,11 +29,9 @@ public class MeetingService {
             throw new IllegalArgumentException("Thời gian bắt đầu phải trước thời gian kết thúc");
         }
 
-        // Truy xuất phòng họp từ tên
-        MeetingRoom room = meetingRoomRepository.findByName(request.getRoom())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phòng họp với tên đã cung cấp"));
-
-
+        MeetingRoom room = meetingRoomRepository.findById(request.getRoomId())
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Không tìm thấy phòng họp với ID: " + request.getRoomId()));
         // Kiểm tra trùng phòng
         List<Meeting> conflicts = meetingRepository
                 .findByRoomAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
@@ -56,10 +58,38 @@ public class MeetingService {
                 .title(saved.getTitle())
                 .startTime(saved.getStartTime())
                 .endTime(saved.getEndTime())
-                .room(saved.getRoom().getName())
+                .roomName(saved.getRoom().getName())
                 .createdBy(saved.getCreatedBy())
                 .invitedEmails(saved.getInvitedEmails())
                 .build();
     }
-}
 
+    public List<TimeSlot> getMeetingRoomSchedule(MeetingRoomScheduleRequest request) {
+        MeetingRoom room = meetingRoomRepository.findById(request.getRoomId())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phòng họp"));
+
+        LocalDateTime dayStart = request.getStartDate().atStartOfDay();
+        LocalDateTime dayEnd = dayStart.plusDays(1);
+
+        List<Meeting> bookedMeetings = meetingRepository
+                .findByRoomAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(room, dayStart, dayEnd);
+
+        List<TimeSlot> slots = new ArrayList<>();
+        LocalDateTime slotStart = dayStart.withHour(0).withMinute(0);
+
+        while (slotStart.isBefore(dayEnd)) {
+            LocalDateTime slotEnd = slotStart.plusMinutes(30);
+
+            final LocalDateTime currentStart = slotStart;
+            final LocalDateTime currentEnd = slotEnd;
+
+            boolean isBooked = bookedMeetings.stream()
+                    .anyMatch(m -> !currentEnd.isBefore(m.getStartTime()) && !currentStart.isAfter(m.getEndTime()));
+
+            slots.add(new TimeSlot(slotStart, slotEnd, !isBooked, ""));
+            slotStart = slotEnd;
+        }
+
+        return slots;
+    }
+}

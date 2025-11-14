@@ -1,19 +1,16 @@
 package com.meeting.schedule_a_meeting.dto.response.admin;
 
-
-import lombok.*;
-import lombok.experimental.FieldDefaults;
-
-import java.util.UUID;
+import com.meeting.schedule_a_meeting.enums.DeviceStatus;
+import lombok.Builder;
+import lombok.Data;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 @Builder
 public class DeviceResponse {
-    private Long id;
+    private String id;
     private String name;
-    private boolean active;
-    private int quantity;
+    private String imagePath;
+    private DeviceStatus status;
+    private int totalQuantity;
+    private int availableQuantity;
 }
-

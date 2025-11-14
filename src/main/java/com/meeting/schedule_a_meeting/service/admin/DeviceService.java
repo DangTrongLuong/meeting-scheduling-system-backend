@@ -1,115 +1,169 @@
 package com.meeting.schedule_a_meeting.service.admin;
 
-import com.meeting.schedule_a_meeting.dto.request.admin.DeviceRequest;
+import com.meeting.schedule_a_meeting.dto.request.admin.DeviceCreateRequest;
+import com.meeting.schedule_a_meeting.dto.request.admin.DeviceUpdateRequest;
 import com.meeting.schedule_a_meeting.dto.response.admin.DeviceResponse;
 import com.meeting.schedule_a_meeting.entities.Device;
+import com.meeting.schedule_a_meeting.enums.DeviceStatus;
 import com.meeting.schedule_a_meeting.enums.ErrorStatus;
 import com.meeting.schedule_a_meeting.exception.AppException;
 import com.meeting.schedule_a_meeting.mapper.admin.DeviceMapper;
 import com.meeting.schedule_a_meeting.repositories.DeviceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.Optional;
 import org.springframework.data.domain.Sort;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class DeviceService {
-    private final DeviceRepository deviceRepository;
-    private final DeviceMapper deviceMapper;
+    private final DeviceRepository repository;
+    private final DeviceMapper mapper;
+    private static final String UPLOAD_DIR = "uploads/devices/";
 
-    //  Tạo mới thiết bị (Add)
-    public DeviceResponse createDevice(DeviceRequest request) {
-        // Kiểm tra nếu đã có thiết bị cùng tên và cùng trạng thái
-        Optional<Device> existingDeviceOpt = deviceRepository.findByNameAndActive(request.getName(), request.isActive());
-
-        if (existingDeviceOpt.isPresent()) {
-            // Nếu tồn tại cùng tên và cùng trạng thái → cộng thêm số lượng
-            Device existingDevice = existingDeviceOpt.get();
-            int newQuantity = existingDevice.getQuantity() + request.getQuantity();
-            existingDevice.setQuantity(newQuantity);
-            return deviceMapper.toResponse(deviceRepository.save(existingDevice));
-        }
-
-        // Nếu chưa tồn tại hoặc khác trạng thái → tạo mới
-        Device device = deviceMapper.toEntity(request);
-
-
-
-        // Nếu quantity < 0 thì set về 0
-        if (device.getQuantity() < 0) {
-            device.setQuantity(0);
-        }
-
-        return deviceMapper.toResponse(deviceRepository.save(device));
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        new File(UPLOAD_DIR).mkdirs();
     }
 
+    // CREATE
+    @Transactional
+    public DeviceResponse create(DeviceCreateRequest request) {
+        validateImage(request.getImage());
+        String imagePath = saveImage(request.getImage());
 
-    //  Xóa thiết bị
-    public void deleteDevice(Long id) {
-        if (!deviceRepository.existsById(id)) {
-            throw new AppException(ErrorStatus.DEVICE_NOT_FOUND);
+        Optional<Device> existing = repository.findByNameAndStatus(request.getName(), request.getStatus());
+        if (existing.isPresent()) {
+            Device device = existing.get();
+            device.setTotalQuantity(device.getTotalQuantity() + request.getQuantity());
+            device.setAvailableQuantity(device.getAvailableQuantity() + request.getQuantity());
+            device.setImagePath(imagePath);
+            return mapper.toResponse(repository.save(device));
         }
-        deviceRepository.deleteById(id);
+
+        Device device = mapper.toEntity(request);
+        device.setImagePath(imagePath);
+        return mapper.toResponse(repository.save(device));
     }
 
-    //  Cập nhật thiết bị (Edit)
-    public DeviceResponse updateDevice(Long id, DeviceRequest request) {
-        Device device = deviceRepository.findById(id)
+    // READ - Get by ID
+    public DeviceResponse getById(String id) {
+        Device device = repository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorStatus.DEVICE_NOT_FOUND));
-
-        boolean isActiveChanged = device.isActive() != request.isActive();
-
-        if (isActiveChanged) {
-            // Nếu đổi trạng thái → kiểm tra bản ghi cùng tên và trạng thái mới
-            Optional<Device> existing = deviceRepository.findByNameAndActive(request.getName(), request.isActive());
-            if (existing.isPresent()) {
-                // Nếu có → cộng quantity vào bản ghi đó
-                Device targetDevice = existing.get();
-                targetDevice.setQuantity(targetDevice.getQuantity() + request.getQuantity());
-
-                //  Xóa bản ghi cũ
-                deviceRepository.delete(device);
-
-                return deviceMapper.toResponse(deviceRepository.save(targetDevice));
-            }
-
-            // Nếu chưa có → tạo bản ghi mới
-            Device newDevice = new Device();
-            newDevice.setName(request.getName());
-            newDevice.setQuantity(request.getQuantity());
-            newDevice.setActive(request.isActive());
-
-            //  Xóa bản ghi cũ
-            deviceRepository.delete(device);
-
-            return deviceMapper.toResponse(deviceRepository.save(newDevice));
-        }
-
-        // Nếu không đổi trạng thái → update bình thường
-        device.setName(request.getName());
-        device.setQuantity(request.getQuantity());
-        return deviceMapper.toResponse(deviceRepository.save(device));
+        return mapper.toResponse(device);
     }
 
+    // READ - Get all with sorting
+    public List<DeviceResponse> getAll(String sortBy, String direction) {
+        Sort sort = direction.equalsIgnoreCase("desc")
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
 
-
-    //  Lấy tất cả thiết bị
-
-    public List<DeviceResponse> getAllDevices(String sortBy, String direction) {
-        Sort sort = direction.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
-        return deviceRepository.findAll(sort).stream()
-                .map(deviceMapper::toResponse)
+        return repository.findAll(sort).stream()
+                .map(mapper::toResponse)
                 .toList();
     }
 
+    // READ - Get by status
+    public List<DeviceResponse> getByStatus(DeviceStatus status) {
+        return repository.findAll().stream()
+                .filter(d -> d.getStatus() == status)
+                .map(mapper::toResponse)
+                .toList();
+    }
 
-    //  Lấy chi tiết thiết bị theo ID
-    public DeviceResponse getDeviceById(Long id) {
-        Device device = deviceRepository.findById(id)
+    @Transactional
+    public DeviceResponse update(String id, DeviceUpdateRequest request) {
+        Device device = repository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorStatus.DEVICE_NOT_FOUND));
-        return deviceMapper.toResponse(device);
+
+        String newImagePath = device.getImagePath();
+        if (request.getImage() != null && !request.getImage().isEmpty()) {
+            validateImage(request.getImage());
+            if (newImagePath != null) {
+                deleteOldImage(newImagePath);
+            }
+            newImagePath = saveImage(request.getImage());
+        }
+
+        boolean nameChanged = !device.getName().equals(request.getName());
+        boolean statusChanged = device.getStatus() != request.getStatus();
+
+        if ((nameChanged || statusChanged)) {
+            Optional<Device> duplicate = repository.findByNameAndStatus(request.getName(), request.getStatus());
+            if (duplicate.isPresent() && !duplicate.get().getId().equals(id)) {
+                throw new AppException(ErrorStatus.DEVICE_NAME_EXISTS);
+            }
+        }
+
+        int oldAvailable = device.getAvailableQuantity();
+        int oldTotal = device.getTotalQuantity();
+        int newQuantity = request.getQuantity();
+
+        device.setName(request.getName());
+        device.setStatus(request.getStatus());
+        device.setTotalQuantity(newQuantity);
+        device.setAvailableQuantity(newQuantity - (oldTotal - oldAvailable)); // giữ nguyên số lượng đã dùng
+        device.setImagePath(newImagePath);
+
+        return mapper.toResponse(repository.save(device));
+    }
+
+    // DELETE
+    @Transactional
+    public void delete(String id) {
+        if (!repository.existsById(id)) {
+            throw new AppException(ErrorStatus.DEVICE_NOT_FOUND);
+        }
+        repository.deleteById(id);
+    }
+
+    // PRIVATE: Image validation & save
+    private void validateImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new AppException(ErrorStatus.INVALID_IMAGE_FORMAT);
+        }
+        if (!file.getContentType().startsWith("image/")) {
+            throw new AppException(ErrorStatus.INVALID_IMAGE_FORMAT);
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new AppException(ErrorStatus.IMAGE_TOO_LARGE);
+        }
+    }
+
+    private String saveImage(MultipartFile file) {
+        try {
+            String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            Path path = Paths.get(UPLOAD_DIR + fileName);
+            Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
+            return "/uploads/devices/" + fileName;
+        } catch (IOException e) {
+            throw new AppException(ErrorStatus.IMAGE_UPLOAD_FAILED);
+        }
+    }
+
+    private void deleteOldImage(String imagePath) {
+        if (imagePath == null || imagePath.isEmpty())
+            return;
+
+        try {
+
+            Path filePath = Paths.get("uploads/devices", imagePath.substring("/uploads/devices/".length()));
+            Files.deleteIfExists(filePath);
+        } catch (Exception e) {
+
+            System.err.println("Failed to delete old image: " + imagePath + " | " + e.getMessage());
+        }
     }
 }
