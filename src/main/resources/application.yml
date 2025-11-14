@@ -20,9 +20,9 @@ spring:
       enabled: true
   # MySQL
   datasource:
-    url: jdbc:mysql://localhost:3306/meeting_scheduling_system
+    url: jdbc:mysql://localhost:3306/meeting_scheduling_system?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
-    password: 230605
+    password: Luong23@
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       connection-timeout: 30000
@@ -43,17 +43,15 @@ spring:
           useUnicode: true
         dialect: org.hibernate.dialect.MySQL8Dialect
 
-  # Google OAuth2
+
+    # Google OAuth2
   security:
     oauth2:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
-            #            client-id: 732859314325-c0vvm2ors0mflkb8be4igt0navih871u.apps.googleusercontent.com
-            #            client-secret: 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
-
+#            client-id: 732859314325-c0vvm2ors0mflkb8be4igt0navih871u.apps.googleusercontent.com
+#            client-secret: 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
             scope: openid,profile,email
             redirect-uri: http://localhost:8080/login/oauth2/code/google
             authorization-grant-type: authorization_code
@@ -74,7 +72,6 @@ spring:
     #    password: ${EMAIL_PASSWORD}
     username: dangtrongluong4@gmail.com
     password: gmnf ihiq wegq prbv
-
     protocol: smtp
     properties:
       mail:
@@ -114,5 +111,6 @@ frontend:
   url: http://localhost:5173
 
 jwt:
-  secret: ${JWT_SECRET:A_VERY_LONG_AND_SECURE_RANDOM_STRING_FOR_HS512_ENCODING_OF_AT_LEAST_64_CHARACTERS_HERE}
+#  secret: ${JWT_SECRET:A_VERY_LONG_AND_SECURE_RANDOM_STRING_FOR_HS512_ENCODING_OF_AT_LEAST_64_CHARACTERS_HERE}
+  secret: OTafhRsXYMF78HOLlDRzN6xouQHaremZfge6RG1gdrXz-oqjwVc0D93mGHJaZ_rmmJuW4t6Zjs9c6CAbFJmsKw
   expiration: 86400000
