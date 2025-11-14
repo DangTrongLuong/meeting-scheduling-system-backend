@@ -11,8 +11,11 @@ import java.util.List;
 @Builder
 public class CreateMeetingRequest {
     private String title;
+    private String room;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
-    private String roomId;
+    private Long roomId;
+    private String status;
     private List<String> invitedEmails;
+    private String status;
 }
