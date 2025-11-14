@@ -53,7 +53,7 @@ public class MeetingService {
                 .endTime(request.getEndTime())
                 .room(room)
                 .createdBy(createdBy)
-                .status(request.getStatus()) // Ensure status exists in DTO & Entity
+                .status(request.getStatus() != null ? request.getStatus() : "ACTIVE") // ✅ Default fallback
                 .invitedEmails(request.getInvitedEmails() != null ? request.getInvitedEmails() : Collections.emptyList())
                 .build();
 

@@ -39,6 +39,7 @@ public class Meeting {
     @Column(name = "created_by", nullable = false)
     private String createdBy;
 
+    @Builder.Default
     @Column(name = "status", nullable = false)
-    private String status = "ACTIVE"; // Default value: ACTIVE, can be CANCELLED
+    private String status = "ACTIVE"; // Default value
 }
