@@ -1,12 +1,13 @@
 package com.meeting.schedule_a_meeting.sercutity;
 
-import com.meeting.schedule_a_meeting.config.TokenFilter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,63 +19,57 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.List;
+import com.meeting.schedule_a_meeting.config.TokenFilter;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private final TokenFilter tokenFilter;
-
-    public SecurityConfig(TokenFilter tokenFilter) {
-        this.tokenFilter = tokenFilter;
-    }
+    @Autowired
+    private TokenFilter tokenFilter;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                // Disable CSRF for APIs
-                .csrf(csrf -> csrf.disable())
+    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
+        httpSecurity
 
-                // Enable CORS using custom configuration
-                .cors(Customizer.withDefaults())
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(Customizer.withDefaults()) // Sử dụng cấu hình CORS từ CorsConfig
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
-                // Stateless session for JWT
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class)
+                .authorizeHttpRequests(requests -> requests
 
-                // Authorization rules
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Preflight requests
-                        .requestMatchers("/uploads/**", "/api/auth/**").permitAll() // Public endpoints
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN") // Admin-only
-                        .requestMatchers("/api/meetings/**").authenticated() // Meetings require login
-                        .anyRequest().authenticated()
-                )
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/admin/**").permitAll()
+                        .requestMatchers("/api/admin/rooms/**").permitAll()
+                        .requestMatchers("/api/admin/devices/**").permitAll()
+                        .requestMatchers("/api/meetings/**").permitAll()
 
-                // OAuth2 login configuration
+                        .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         .loginPage("/api/auth/login/google")
-                        .authorizationEndpoint(authorization -> authorization.baseUri("/oauth2/authorization"))
-                        .redirectionEndpoint(redirection -> redirection.baseUri("/login/oauth2/code/*"))
+                        .authorizationEndpoint(authorization -> authorization
+                                .baseUri("/oauth2/authorization"))
+                        .redirectionEndpoint(redirection -> redirection
+                                .baseUri("/login/oauth2/code/*"))
                         .defaultSuccessUrl("/api/auth/loginSuccess", true)
-                        .failureUrl("/api/auth/login/google?error=true")
-                )
+                        // .successHandler(customSuccessHandler)
+                        .failureUrl("/api/auth/login/google?error=true"))
                 .oauth2Client(Customizer.withDefaults())
 
-                // Logout configuration
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")
                         .logoutSuccessUrl("http://localhost:5173/")
+
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
+
                         .deleteCookies("JSESSIONID")
-                        .permitAll()
-                )
+                        .permitAll());
 
-                // Add JWT filter before UsernamePasswordAuthenticationFilter
-                .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class);
-
-        return http.build();
+        return httpSecurity.build();
     }
 
     @Bean
@@ -90,17 +85,19 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.addAllowedOrigin("http://localhost:5173");
+        configuration.addAllowedMethod("GET");
+        configuration.addAllowedMethod("POST");
+        configuration.addAllowedMethod("PUT");
+        configuration.addAllowedMethod("DELETE");
+        configuration.addAllowedMethod("OPTIONS");
+        configuration.addAllowedHeader("*");
         configuration.setAllowCredentials(true);
-        configuration.setExposedHeaders(List.of(
-                "Access-Control-Allow-Origin",
-                "Access-Control-Allow-Methods",
-                "Access-Control-Allow-Headers",
-                "Location",
-                "Content-Type"
-        ));
+        configuration.addExposedHeader("Access-Control-Allow-Origin");
+        configuration.addExposedHeader("Access-Control-Allow-Methods");
+        configuration.addExposedHeader("Access-Control-Allow-Headers");
+        configuration.addExposedHeader("Location");
+        configuration.addExposedHeader("Content-Type");
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
