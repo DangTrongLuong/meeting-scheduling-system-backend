@@ -1,4 +1,4 @@
-package com.meeting.schedule_a_meeting.sercutity;
+package com.meeting.schedule_a_meeting.security;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -45,6 +45,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").permitAll()
                         .requestMatchers("/api/admin/rooms/**").permitAll()
                         .requestMatchers("/api/admin/devices/**").permitAll()
+                        .requestMatchers("/api/meetings").permitAll()
                         .requestMatchers("/api/meetings/**").permitAll()
 
                         .anyRequest().authenticated())

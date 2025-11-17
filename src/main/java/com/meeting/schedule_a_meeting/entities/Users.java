@@ -57,6 +57,9 @@ public class Users {
     @Column(name = "age")
     int age;
 
+    @Column(name= "phone_numbers")
+    String phone_numbers;
+
     @Column(name = "address", length = 255)
     String address;
 
