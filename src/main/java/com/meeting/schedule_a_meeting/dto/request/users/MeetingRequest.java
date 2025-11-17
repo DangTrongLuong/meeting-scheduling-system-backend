@@ -9,7 +9,9 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CreateMeetingRequest {
+public class MeetingRequest {
+
+    private Long id;
     private String title;
     private String room;
     private LocalDateTime startTime;

@@ -15,7 +15,6 @@ public class MeetingResponse {
     private String room;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
-    private String roomName;
     private String createdBy;
     private String status;
     private List<String> invitedEmails;
