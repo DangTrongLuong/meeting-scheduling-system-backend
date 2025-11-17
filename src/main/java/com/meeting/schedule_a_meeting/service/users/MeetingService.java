@@ -12,9 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +45,14 @@ public class MeetingService {
                     conflictMeeting.getStartTime() + " to " + conflictMeeting.getEndTime());
         }
 
+        Map<String, String> statusMap = new HashMap<>();
+        if (request.getInvitedEmails() != null) {
+            for (String email : request.getInvitedEmails()) {
+                statusMap.put(email, "PENDING");
+            }
+        }
+
+
         Meeting meeting = Meeting.builder()
                 .title(request.getTitle())
                 .startTime(request.getStartTime())
@@ -55,9 +61,20 @@ public class MeetingService {
                 .createdBy(createdBy)
                 .status(request.getStatus() != null ? request.getStatus() : "ACTIVE") // ✅ Default fallback
                 .invitedEmails(request.getInvitedEmails() != null ? request.getInvitedEmails() : Collections.emptyList())
+                .invitationStatus(statusMap)
                 .build();
 
         Meeting saved = meetingRepository.save(meeting);
+
+
+// ✅ Gửi email xác nhận cho từng người
+        if (request.getInvitedEmails() != null) {
+            for (String email : request.getInvitedEmails()) {
+                String confirmLink = "http://your-frontend/verify-invitation?meetingId=" + saved.getId() + "&email=" + email;
+                EmailService.sendVerificationEmail(email, confirmLink);
+            }
+        }
+
 
         return MeetingResponse.builder()
                 .id(saved.getId())
@@ -132,4 +149,23 @@ public class MeetingService {
                 .status(meeting.getStatus())
                 .build();
     }
+
+    public List<MeetingResponse> getAcceptedMeetingsForUser(String email) {
+        List<Meeting> meetings = meetingRepository.findAll();
+        return meetings.stream()
+                .filter(m -> m.getInvitationStatus() != null &&
+                        "ACCEPTED".equals(m.getInvitationStatus().get(email)))
+                .map(m -> MeetingResponse.builder()
+                        .id(m.getId())
+                        .title(m.getTitle())
+                        .startTime(m.getStartTime())
+                        .endTime(m.getEndTime())
+                        .roomName(m.getRoom().getName())
+                        .createdBy(m.getCreatedBy())
+                        .status(m.getStatus())
+                        .invitedEmails(m.getInvitedEmails())
+                        .build())
+                .toList();
+    }
+
 }

@@ -33,4 +33,10 @@ public class InvitationController {
         List<String> suggestions = invitationService.suggestEmails(query);
         return ResponseEntity.ok(suggestions);
     }
+    @GetMapping("/{meetingId}/confirm")
+    public ResponseEntity<String> confirmInvitation(@PathVariable Long meetingId,
+                                                    @RequestParam String email) {
+        String result = invitationService.confirmInvitation(meetingId, email);
+        return ResponseEntity.ok(result);
+    }
 }

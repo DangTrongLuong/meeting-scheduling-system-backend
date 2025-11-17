@@ -6,6 +6,7 @@ import com.meeting.schedule_a_meeting.dto.response.users.MeetingResponse;
 import com.meeting.schedule_a_meeting.dto.response.users.TimeSlot;
 import com.meeting.schedule_a_meeting.service.users.MeetingService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,6 +39,11 @@ public class MeetingController {
         return meetingService.getMeetingDetail(id);
     }
 
+    @GetMapping("/accepted")
+    public List<MeetingResponse> getAcceptedMeetings(@AuthenticationPrincipal org.springframework.security.core.userdetails.User user) {
+        String email = user.getUsername(); // lấy từ JWT
+        return meetingService.getAcceptedMeetingsForUser(email);
+    }
 
 }
 

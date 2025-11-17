@@ -48,4 +48,16 @@ public class InvitationService {
     public List<String> suggestEmails(String query) {
         return userRepository.searchEmailByQuery(query);
     }
+
+    public String confirmInvitation(Long meetingId, String email) {
+        Meeting meeting = meetingRepository.findById(meetingId)
+                .orElseThrow(() -> new IllegalArgumentException("Meeting not found"));
+
+        if (meeting.getInvitationStatus() != null && meeting.getInvitationStatus().containsKey(email)) {
+            meeting.getInvitationStatus().put(email, "ACCEPTED");
+            meetingRepository.save(meeting);
+            return "Invitation confirmed successfully!";
+        }
+        return "Email not invited to this meeting.";
+    }
 }

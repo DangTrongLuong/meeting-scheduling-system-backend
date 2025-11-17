@@ -3,7 +3,9 @@ package com.meeting.schedule_a_meeting.entities;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Entity
 @Table(name = "meetings")
@@ -42,4 +44,10 @@ public class Meeting {
     @Builder.Default
     @Column(name = "status", nullable = false)
     private String status = "ACTIVE"; // Default value
+
+    @ElementCollection
+    @CollectionTable(name = "meeting_invitation_status", joinColumns = @JoinColumn(name = "meeting_id"))
+    @MapKeyColumn(name = "email")
+    @Column(name = "status")
+    private Map<String, String> invitationStatus = new HashMap<>();
 }
