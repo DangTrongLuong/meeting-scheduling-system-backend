@@ -125,7 +125,7 @@ public class UserController {
         }
 
         Users user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOTFOUND));
 
         if (user.isActive()) {
             return ResponseEntity.ok(Map.of(

@@ -72,7 +72,7 @@ public class UserService {
 
     public UserResponse updateUserRequest(UUID id, UserUpdateRequest request) {
         Users user = userRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND));
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOTFOUND));
         userMapper.updateUser(user, request);
 
         return userMapper.toUserResponse(userRepository.save(user));
@@ -88,7 +88,7 @@ public class UserService {
 
     public UserResponse getUser(UUID id) {
         return userMapper.toUserResponse(userRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND)));
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOTFOUND)));
     }
 
     public void logout(String bearerToken) {
@@ -96,7 +96,7 @@ public class UserService {
             String token = bearerToken.substring(7);
 
             Users user = userRepository.findByAccessToken(token)
-                    .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND));
+                    .orElseThrow(() -> new AppException(ErrorStatus.USER_NOTFOUND));
 
             user.setAccessToken(null);
             user.setRefreshToken(null);

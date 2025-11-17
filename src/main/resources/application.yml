@@ -20,7 +20,7 @@ spring:
       enabled: true
   # MySQL
   datasource:
-    url: jdbc:mysql://localhost:3306/meeting_scheduling_system_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/meeting_scheduling_system?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
     password: Luong23@
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -50,8 +50,8 @@ spring:
       client:
         registration:
           google:
-            client-id: 732859314325-c0vvm2ors0mflkb8be4igt0navih871u.apps.googleusercontent.com
-            client-secret: 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
+#            client-id: 732859314325-c0vvm2ors0mflkb8be4igt0navih871u.apps.googleusercontent.com
+#            client-secret: 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
             scope: openid,profile,email
             redirect-uri: http://localhost:8080/login/oauth2/code/google
             authorization-grant-type: authorization_code

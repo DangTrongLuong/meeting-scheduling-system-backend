@@ -39,7 +39,6 @@ public class TokenFilter extends OncePerRequestFilter {
                 || path.startsWith("/uploads/")
                 || path.startsWith("/api/admin/")
                 || path.startsWith("/api/users/")
-                || path.equals("/api/meetings")
                 || path.startsWith("/api/meetings/")) {
             filterChain.doFilter(request, response);
             return;
@@ -59,7 +58,7 @@ public class TokenFilter extends OncePerRequestFilter {
             String accessToken = authHeader.substring(7);
             if (!accessToken.isEmpty()) {
                 try {
-
+                    // Validate JWT token
                     Jwts.parserBuilder()
                             .setSigningKey(SECRET_KEY)
                             .build()
