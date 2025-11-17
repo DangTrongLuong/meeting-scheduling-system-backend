@@ -1,6 +1,6 @@
 package com.meeting.schedule_a_meeting.service.users;
 
-import com.meeting.schedule_a_meeting.dto.request.users.CreateMeetingRequest;
+import com.meeting.schedule_a_meeting.dto.request.users.MeetingRequest;
 import com.meeting.schedule_a_meeting.dto.request.users.MeetingRoomScheduleRequest;
 import com.meeting.schedule_a_meeting.dto.response.users.MeetingResponse;
 import com.meeting.schedule_a_meeting.dto.response.users.TimeSlot;
@@ -24,7 +24,7 @@ public class MeetingService {
     private final MeetingRoomRepository meetingRoomRepository;
 
     // ✅ Create a meeting with conflict check
-    public MeetingResponse createMeeting(CreateMeetingRequest request, String createdBy) {
+    public MeetingResponse createMeeting(MeetingRequest request, String createdBy) {
         if (request.getStartTime().isAfter(request.getEndTime())) {
             throw new IllegalArgumentException("Start time must be before end time");
         }
@@ -64,7 +64,7 @@ public class MeetingService {
                 .title(saved.getTitle())
                 .startTime(saved.getStartTime())
                 .endTime(saved.getEndTime())
-                .roomName(saved.getRoom().getName())
+                .room(saved.getRoom().getName())
                 .createdBy(saved.getCreatedBy())
                 .status(saved.getStatus())
                 .invitedEmails(saved.getInvitedEmails())
@@ -126,10 +126,66 @@ public class MeetingService {
                 .title(meeting.getTitle())
                 .startTime(meeting.getStartTime())
                 .endTime(meeting.getEndTime())
-                .roomName(meeting.getRoom().getName())
+                .room(meeting.getRoom().getName())
                 .createdBy(meeting.getCreatedBy())
                 .invitedEmails(meeting.getInvitedEmails())
                 .status(meeting.getStatus())
                 .build();
     }
+    public MeetingResponse updateMeeting(MeetingRequest request, String user) {
+        Meeting meeting = meetingRepository.findById(request.getId())
+                .orElseThrow(() -> new RuntimeException("Meeting not found"));
+
+        // Chỉ người tạo mới được cập nhật
+        if (!meeting.getCreatedBy().equals(user)) {
+            throw new RuntimeException("Only the creator can update this meeting");
+        }
+
+        // Kiểm tra thời gian hợp lệ
+        if (request.getStartTime().isAfter(request.getEndTime())) {
+            throw new IllegalArgumentException("Thời gian bắt đầu phải trước thời gian kết thúc");
+        }
+
+        // Kiểm tra xung đột phòng
+        if (request.getRoomId() != null) {
+            MeetingRoom room = meetingRoomRepository.findById(request.getRoomId())
+                    .orElseThrow(() -> new RuntimeException("Meeting room not found"));
+
+            List<Meeting> conflicts = meetingRepository
+                    .findByRoomAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
+                            room, request.getEndTime(), request.getStartTime());
+
+            // Loại bỏ cuộc họp hiện tại khỏi danh sách xung đột
+            conflicts.removeIf(m -> m.getId().equals(meeting.getId()));
+
+            if (!conflicts.isEmpty()) {
+                throw new IllegalArgumentException("Phòng họp đã được đặt trong khung giờ này");
+            }
+
+            meeting.setRoom(room);
+        }
+
+        // Cập nhật thông tin cơ bản
+        meeting.setTitle(request.getTitle());
+        meeting.setStartTime(request.getStartTime());
+        meeting.setEndTime(request.getEndTime());
+
+        // Cập nhật danh sách email mời
+        if (request.getInvitedEmails() != null) {
+            meeting.setInvitedEmails(request.getInvitedEmails());
+        }
+
+        meetingRepository.save(meeting);
+
+        return MeetingResponse.builder()
+                .id(meeting.getId())
+                .title(meeting.getTitle())
+                .startTime(meeting.getStartTime())
+                .endTime(meeting.getEndTime())
+                .room(meeting.getRoom() != null ? meeting.getRoom().getName() : null)
+                .invitedEmails(meeting.getInvitedEmails())
+                .createdBy(meeting.getCreatedBy())
+                .build();
+    }
 }
+

@@ -1,6 +1,6 @@
 package com.meeting.schedule_a_meeting.controllers.users;
 
-import com.meeting.schedule_a_meeting.dto.request.users.CreateMeetingRequest;
+import com.meeting.schedule_a_meeting.dto.request.users.MeetingRequest;
 import com.meeting.schedule_a_meeting.dto.request.users.MeetingRoomScheduleRequest;
 import com.meeting.schedule_a_meeting.dto.response.users.MeetingResponse;
 import com.meeting.schedule_a_meeting.dto.response.users.TimeSlot;
@@ -18,7 +18,7 @@ public class MeetingController {
     private final MeetingService meetingService;
 
     @PostMapping("/create")
-    public MeetingResponse createMeeting(@RequestBody CreateMeetingRequest request,
+    public MeetingResponse createMeeting(@RequestBody MeetingRequest request,
                                          @RequestHeader("createdBy") String createdBy) {
         return meetingService.createMeeting(request, createdBy);
     }
@@ -37,8 +37,11 @@ public class MeetingController {
     public MeetingResponse getMeetingDetail(@PathVariable Long id) {
         return meetingService.getMeetingDetail(id);
     }
-
-
+    @PutMapping("/update")
+    public MeetingResponse updateMeeting(@RequestBody MeetingRequest request,
+                                         @RequestHeader("user") String user) {
+        return meetingService.updateMeeting(request, user);
+    }
 }
 
 
