@@ -1,4 +1,4 @@
-package com.meeting.schedule_a_meeting.sercutity;
+package com.meeting.schedule_a_meeting.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

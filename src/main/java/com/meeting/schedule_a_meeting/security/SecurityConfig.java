@@ -1,4 +1,4 @@
-package com.meeting.schedule_a_meeting.sercutity;
+package com.meeting.schedule_a_meeting.security;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -33,7 +33,7 @@ public class SecurityConfig {
         httpSecurity
 
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(Customizer.withDefaults()) // Sử dụng cấu hình CORS từ CorsConfig
+                .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
                 .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class)
@@ -45,6 +45,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").permitAll()
                         .requestMatchers("/api/admin/rooms/**").permitAll()
                         .requestMatchers("/api/admin/devices/**").permitAll()
+                        // .requestMatchers("/api/meetings").authenticated()
                         .requestMatchers("/api/meetings/**").permitAll()
 
                         .anyRequest().authenticated())

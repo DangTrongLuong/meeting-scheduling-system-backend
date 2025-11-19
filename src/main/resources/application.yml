@@ -43,7 +43,6 @@ spring:
           useUnicode: true
         dialect: org.hibernate.dialect.MySQL8Dialect
 
-
     # Google OAuth2
   security:
     oauth2:
@@ -92,9 +91,17 @@ logging:
         security:
           oauth2: TRACE
         web: DEBUG
-    com:
-      pms:
-        backend: DEBUG
+    root: INFO
+    com.meeting.schedule_a_meeting: DEBUG
+    com.meeting.schedule_a_meeting.controllers: DEBUG
+    com.meeting.schedule_a_meeting.security: DEBUG
+    com.meeting.schedule_a_meeting.service: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web.servlet.mvc.method.annotation: DEBUG
+
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
 
 #endpoint Prometheus
 management:
@@ -111,6 +118,6 @@ frontend:
   url: http://localhost:5173
 
 jwt:
-#  secret: ${JWT_SECRET:A_VERY_LONG_AND_SECURE_RANDOM_STRING_FOR_HS512_ENCODING_OF_AT_LEAST_64_CHARACTERS_HERE}
+  #  secret: ${JWT_SECRET:A_VERY_LONG_AND_SECURE_RANDOM_STRING_FOR_HS512_ENCODING_OF_AT_LEAST_64_CHARACTERS_HERE}
   secret: OTafhRsXYMF78HOLlDRzN6xouQHaremZfge6RG1gdrXz-oqjwVc0D93mGHJaZ_rmmJuW4t6Zjs9c6CAbFJmsKw
   expiration: 86400000

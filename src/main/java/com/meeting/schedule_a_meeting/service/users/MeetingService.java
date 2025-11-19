@@ -1,135 +1,367 @@
+
 package com.meeting.schedule_a_meeting.service.users;
 
-import com.meeting.schedule_a_meeting.dto.request.users.CreateMeetingRequest;
-import com.meeting.schedule_a_meeting.dto.request.users.MeetingRoomScheduleRequest;
-import com.meeting.schedule_a_meeting.dto.response.users.MeetingResponse;
-import com.meeting.schedule_a_meeting.dto.response.users.TimeSlot;
-import com.meeting.schedule_a_meeting.entities.Meeting;
-import com.meeting.schedule_a_meeting.entities.MeetingRoom;
-import com.meeting.schedule_a_meeting.repositories.MeetingRepository;
-import com.meeting.schedule_a_meeting.repositories.MeetingRoomRepository;
+import com.meeting.schedule_a_meeting.dto.request.users.meetting.*;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.*;
+import com.meeting.schedule_a_meeting.entities.*;
+import com.meeting.schedule_a_meeting.enums.*;
+import com.meeting.schedule_a_meeting.exception.AppException;
+import com.meeting.schedule_a_meeting.mapper.users.MeetingMapper;
+import com.meeting.schedule_a_meeting.repositories.*;
+import com.meeting.schedule_a_meeting.repositories.meeting.*;
+
+import com.meeting.schedule_a_meeting.repositories.meeting.MeetingRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import com.meeting.schedule_a_meeting.dto.request.users.meetting.DeviceBorrowRequest;
+
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import com.meeting.schedule_a_meeting.dto.response.admin.RoomDeviceResponse;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MeetingService {
 
     private final MeetingRepository meetingRepository;
+    private final MeetingParticipantRepository participantRepository;
+    private final MeetingDeviceRepository meetingDeviceRepository;
+    private final UserRepository userRepository;
     private final MeetingRoomRepository meetingRoomRepository;
+    private final DeviceRepository deviceRepository;
+    private final RoomDeviceRepository roomDeviceRepository;
+    private final MeetingMapper meetingMapper;
 
-    // ✅ Create a meeting with conflict check
-    public MeetingResponse createMeeting(CreateMeetingRequest request, String createdBy) {
-        if (request.getStartTime().isAfter(request.getEndTime())) {
-            throw new IllegalArgumentException("Start time must be before end time");
-        }
+    private static final LocalTime MORNING_START = LocalTime.of(7, 0);
+    private static final LocalTime MORNING_END = LocalTime.of(12, 0);
+    private static final LocalTime AFTERNOON_START = LocalTime.of(13, 0);
+    private static final LocalTime EVENING_END = LocalTime.of(23, 0);
+
+    /* ====================== CREATE MEETING ====================== */
+    @Transactional
+    public MeetingResponse createMeeting(CreateMeetingRequest request, UUID creatorId) {
+        validateMeetingTime(request.getStartTime(), request.getEndTime());
+        validateRoomAvailability(request.getRoomId(), request.getStartTime(), request.getEndTime(), null);
+
+        Users creator = userRepository.findById(creatorId)
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND));
 
         MeetingRoom room = meetingRoomRepository.findById(request.getRoomId())
-                .orElseThrow(
-                        () -> new IllegalArgumentException("Không tìm thấy phòng họp với ID: " + request.getRoomId()));
-        // Kiểm tra trùng phòng
-        List<Meeting> conflicts = meetingRepository
-                .findByRoomAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(
-                        room, request.getEndTime(), request.getStartTime());
-
-        boolean hasConflict = conflicts.stream()
-                .anyMatch(m -> request.getStartTime().isBefore(m.getEndTime()) &&
-                        request.getEndTime().isAfter(m.getStartTime()));
-
-        if (hasConflict) {
-            Meeting conflictMeeting = conflicts.get(0);
-            throw new IllegalArgumentException("Room is already booked from " +
-                    conflictMeeting.getStartTime() + " to " + conflictMeeting.getEndTime());
-        }
+                .orElseThrow(() -> new AppException(ErrorStatus.ROOM_NOT_FOUND));
 
         Meeting meeting = Meeting.builder()
                 .title(request.getTitle())
+                .description(request.getDescription())
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
-                .room(room)
-                .createdBy(createdBy)
-                .status(request.getStatus()) // Ensure status exists in DTO & Entity
-                .invitedEmails(request.getInvitedEmails() != null ? request.getInvitedEmails() : Collections.emptyList())
+                .meetingRoom(room)
+                .creator(creator)
+                .status(MeetingStatus.SCHEDULED)
                 .build();
 
-        Meeting saved = meetingRepository.save(meeting);
+        final Meeting savedMeeting = meetingRepository.save(meeting);
 
-        return MeetingResponse.builder()
-                .id(saved.getId())
-                .title(saved.getTitle())
-                .startTime(saved.getStartTime())
-                .endTime(saved.getEndTime())
-                .roomName(saved.getRoom().getName())
-                .createdBy(saved.getCreatedBy())
-                .status(saved.getStatus())
-                .invitedEmails(saved.getInvitedEmails())
-                .build();
-    }
+        assignDefaultRoomDevices(meeting);
 
-    // ✅ Get meeting room schedule (30-min slots from 08:00 to 18:00)
-    public List<TimeSlot> getMeetingRoomSchedule(MeetingRoomScheduleRequest request) {
-        MeetingRoom room = meetingRoomRepository.findById(request.getRoomId())
-                .orElseThrow(() -> new IllegalArgumentException("Meeting room not found"));
+        addParticipantsByEmail(meeting, request.getParticipants(), creatorId);
 
-        LocalDateTime dayStart = request.getStartDate().atStartOfDay();
-        LocalDateTime dayEnd = dayStart.plusDays(1);
-
-        List<Meeting> bookedMeetings = meetingRepository
-                .findByRoomAndStartTimeLessThanEqualAndEndTimeGreaterThanEqual(room, dayStart, dayEnd);
-
-        List<TimeSlot> slots = new ArrayList<>();
-        LocalDateTime slotStart = dayStart.withHour(8);
-        LocalDateTime slotEndLimit = dayStart.withHour(18);
-
-        while (slotStart.isBefore(slotEndLimit)) {
-            LocalDateTime slotEnd = slotStart.plusMinutes(30);
-
-            LocalDateTime finalSlotStart = slotStart;
-            Meeting meeting = bookedMeetings.stream()
-                    .filter(m -> finalSlotStart.isBefore(m.getEndTime()) && slotEnd.isAfter(m.getStartTime()))
-                    .findFirst()
-                    .orElse(null);
-
-            boolean isBooked = meeting != null;
-            String title = isBooked ? meeting.getTitle() : "Available";
-
-            slots.add(new TimeSlot(slotStart, slotEnd, isBooked, title));
-            slotStart = slotEnd;
+        if (request.getBorrowedDevices() != null && !request.getBorrowedDevices().isEmpty()) {
+            request.getBorrowedDevices().forEach(deviceReq -> borrowAdditionalDevice(savedMeeting, deviceReq));
         }
 
-        return slots;
+        return meetingMapper.toMeetingResponse(meeting);
     }
 
-    // ✅ Cancel meeting
-    public void cancelMeeting(Long meetingId, String createdBy) {
+    /* ====================== UPDATE MEETING ====================== */
+    @Transactional
+    public MeetingResponse updateMeeting(String meetingId, UpdateMeetingRequest request, UUID userId) {
         Meeting meeting = meetingRepository.findById(meetingId)
-                .orElseThrow(() -> new IllegalArgumentException("Meeting not found with ID: " + meetingId));
+                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
 
-        if (!meeting.getCreatedBy().equals(createdBy)) {
-            throw new IllegalArgumentException("You do not have permission to cancel this meeting");
+        if (!meeting.getCreator().getId().equals(userId)) {
+            throw new AppException(ErrorStatus.MEETING_CREATOR_REQUIRED);
         }
+        if (meeting.getStatus() == MeetingStatus.CANCELLED) {
+            throw new AppException(ErrorStatus.MEETING_ALREADY_CANCELLED);
+        }
+        if (meeting.getStartTime().isBefore(LocalDateTime.now().plusMinutes(1))) {
+            throw new AppException(ErrorStatus.MEETING_CANNOT_EDIT_PAST);
+        }
+
+        // Cập nhật thông tin cơ bản
+        if (request.getTitle() != null)
+            meeting.setTitle(request.getTitle());
+        if (request.getDescription() != null)
+            meeting.setDescription(request.getDescription());
+
+        // Cập nhật thời gian + phòng
+        if (request.getStartTime() != null && request.getEndTime() != null) {
+            validateMeetingTime(request.getStartTime(), request.getEndTime());
+            validateRoomAvailability(
+                    request.getRoomId() != null ? request.getRoomId() : meeting.getMeetingRoom().getId(),
+                    request.getStartTime(), request.getEndTime(), meetingId);
+            meeting.setStartTime(request.getStartTime());
+            meeting.setEndTime(request.getEndTime());
+        }
+
+        if (request.getRoomId() != null && !request.getRoomId().equals(meeting.getMeetingRoom().getId())) {
+            MeetingRoom newRoom = meetingRoomRepository.findById(request.getRoomId())
+                    .orElseThrow(() -> new AppException(ErrorStatus.ROOM_NOT_FOUND));
+            validateRoomAvailability(newRoom.getId(), meeting.getStartTime(), meeting.getEndTime(), meetingId);
+            meeting.setMeetingRoom(newRoom);
+        }
+
+        // Cập nhật participants
+        if (request.getParticipants() != null) {
+            updateParticipants(meeting, request.getParticipants(), userId);
+        }
+
+        // Cập nhật chỉ borrowed devices
+        if (request.getBorrowedDevices() != null) {
+            updateBorrowedDevices(meeting, request.getBorrowedDevices());
+        }
+
+        return meetingMapper.toMeetingResponse(meetingRepository.save(meeting));
+    }
+
+    public List<RoomDeviceResponse> getRoomDevices(String roomId) {
+        return roomDeviceRepository.findActiveDevicesByRoom(roomId).stream()
+                .map(rd -> RoomDeviceResponse.builder()
+                        .id(rd.getId())
+                        .deviceName(rd.getDevice().getName())
+                        .roomName(rd.getMeetingRoom().getName())
+                        .quantity(rd.getQuantity())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    public List<UserSummary> searchUsersByEmail(String emailPart) {
+        return userRepository.findTop10ByEmailContainingIgnoreCase(emailPart).stream()
+                .map(user -> UserSummary.builder()
+                        .id(user.getId())
+                        .name(user.getName())
+                        .email(user.getEmail())
+                        .avatarUrl(user.getAvatar_url())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    public List<DeviceResponse> getAllActiveDevices() {
+        return deviceRepository.findByStatus(DeviceStatus.ACTIVE).stream()
+                .map(device -> DeviceResponse.builder()
+                        .id(device.getId())
+                        .device(DeviceSummary.builder()
+                                .id(device.getId())
+                                .name(device.getName())
+                                .imagePath(device.getImagePath())
+                                .build())
+
+                        .status(MeetingDeviceStatus.valueOf(device.getStatus().name()))
+
+                        .quantity(device.getTotalQuantity())
+                        .availableQuantity(device.getAvailableQuantity())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void deleteMeeting(String meetingId, UUID currentUserId) {
+        Meeting meeting = meetingRepository.findById(meetingId)
+                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+
+        if (!meeting.getCreator().getId().equals(currentUserId)) {
+            throw new AppException(ErrorStatus.MEETING_CREATOR_REQUIRED);
+        }
+
+        if (meeting.getStatus() == MeetingStatus.CANCELLED) {
+            throw new AppException(ErrorStatus.MEETING_ALREADY_CANCELLED);
+        }
+
+        participantRepository.deleteByMeetingId(meetingId);
+        meetingDeviceRepository.deleteByMeetingId(meetingId);
 
         meetingRepository.delete(meeting);
     }
 
-    // ✅ Get meeting details
-    public MeetingResponse getMeetingDetail(Long id) {
-        Meeting meeting = meetingRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Meeting not found"));
-        return MeetingResponse.builder()
-                .id(meeting.getId())
-                .title(meeting.getTitle())
-                .startTime(meeting.getStartTime())
-                .endTime(meeting.getEndTime())
-                .roomName(meeting.getRoom().getName())
-                .createdBy(meeting.getCreatedBy())
-                .invitedEmails(meeting.getInvitedEmails())
-                .status(meeting.getStatus())
+    /* ====================== CANCEL MEETING ====================== */
+    @Transactional
+    public void cancelMeeting(String meetingId, UUID userId, String reason) {
+        Meeting meeting = meetingRepository.findById(meetingId)
+                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+
+        if (!meeting.getCreator().getId().equals(userId)) {
+            throw new AppException(ErrorStatus.MEETING_CREATOR_REQUIRED);
+        }
+        if (meeting.getStatus() == MeetingStatus.CANCELLED) {
+            throw new AppException(ErrorStatus.MEETING_ALREADY_CANCELLED);
+        }
+
+        meeting.setStatus(MeetingStatus.CANCELLED);
+
+        returnBorrowedDevices(meeting);
+    }
+
+    /* ====================== GET METHODS ====================== */
+    public MeetingResponse getMeetingById(String meetingId, UUID userId) {
+        Meeting meeting = meetingRepository.findById(meetingId)
+                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+        if (!hasAccess(meeting, userId)) {
+            throw new AppException(ErrorStatus.FORBIDDEN);
+        }
+        return meetingMapper.toMeetingResponse(meeting);
+    }
+
+    public List<MeetingResponse> getMyMeetings(UUID userId) {
+        return meetingRepository.findMeetingsByUser(userId).stream()
+                .map(meetingMapper::toMeetingResponse)
+                .toList();
+    }
+
+    public List<MeetingResponse> getMyCreatedMeetings(UUID userId) {
+        return meetingRepository.findByCreatorIdOrderByStartTimeDesc(userId).stream()
+                .map(meetingMapper::toMeetingResponse)
+                .toList();
+    }
+
+    public List<MeetingResponse> getRoomSchedule(String roomId, LocalDateTime startDate, LocalDateTime endDate) {
+        return meetingRepository.findMeetingsByRoomAndDateRange(roomId, startDate, endDate).stream()
+                .map(meetingMapper::toMeetingResponse)
+                .toList();
+    }
+
+    /* ====================== PRIVATE HELPERS ====================== */
+    private void assignDefaultRoomDevices(Meeting meeting) {
+        roomDeviceRepository.findByMeetingRoomId(meeting.getMeetingRoom().getId())
+                .stream()
+                .filter(rd -> rd.getStatus() == RoomDeviceStatus.IN_USE)
+                .forEach(rd -> {
+                    MeetingDevice md = MeetingDevice.builder()
+                            .meeting(meeting)
+                            .device(rd.getDevice())
+                            .quantity(rd.getQuantity())
+                            .status(MeetingDeviceStatus.RESERVED)
+                            .notes("Auto-assigned from room")
+                            .build();
+                    meetingDeviceRepository.save(md);
+                    meeting.getDevices().add(md);
+                });
+    }
+
+    private void addParticipantsByEmail(Meeting meeting, List<ParticipantRequest> requests, UUID creatorId) {
+        if (requests == null)
+            return;
+        requests.forEach(req -> {
+            Users user = userRepository.findByEmail(req.getEmail())
+                    .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND));
+            if (user.getId().equals(creatorId))
+                return;
+
+            String meetingId = meeting.getId();
+            UUID userId = user.getId();
+            participantRepository.existsByMeetingIdAndUserId(meetingId, userId);
+            if (participantRepository.existsByMeetingIdAndUserId(meetingId, userId)) {
+                throw new AppException(ErrorStatus.PARTICIPANT_ALREADY_INVITED);
+            }
+            MeetingParticipant mp = MeetingParticipant.builder()
+                    .meeting(meeting).user(user)
+                    .role(req.getRole() != null ? req.getRole() : ParticipantRole.REQUIRED)
+                    .status(ParticipantStatus.PENDING).invitedAt(LocalDateTime.now())
+                    .build();
+            participantRepository.save(mp);
+            meeting.getParticipants().add(mp);
+        });
+    }
+
+    private void borrowAdditionalDevice(Meeting meeting, DeviceBorrowRequest req) {
+        Device device = deviceRepository.findById(req.getDeviceId())
+                .orElseThrow(() -> new AppException(ErrorStatus.DEVICE_NOT_FOUND));
+        if (device.getStatus() != DeviceStatus.ACTIVE)
+            throw new AppException(ErrorStatus.DEVICE_NOT_ACTIVE);
+
+        boolean alreadyInRoom = roomDeviceRepository.existsByMeetingRoomIdAndDeviceId(
+                meeting.getMeetingRoom().getId(), req.getDeviceId());
+        if (alreadyInRoom)
+            throw new AppException(ErrorStatus.DEVICE_ALREADY_IN_USE_IN_ROOM);
+
+        int reserved = meetingDeviceRepository.getTotalReservedQuantity(
+                req.getDeviceId(), meeting.getStartTime(), meeting.getEndTime());
+        if (device.getAvailableQuantity() < req.getQuantity()) {
+            throw new AppException(ErrorStatus.INSUFFICIENT_QUANTITY);
+        }
+
+        device.setAvailableQuantity(device.getAvailableQuantity() - req.getQuantity());
+        deviceRepository.save(device);
+
+        MeetingDevice md = MeetingDevice.builder()
+                .meeting(meeting).device(device).quantity(req.getQuantity())
+                .status(MeetingDeviceStatus.RESERVED).notes(req.getNotes())
                 .build();
+        meetingDeviceRepository.save(md);
+        meeting.getDevices().add(md);
+    }
+
+    private void updateBorrowedDevices(Meeting meeting, List<DeviceBorrowRequest> newList) {
+        List<MeetingDevice> currentBorrowed = meeting.getDevices().stream()
+                .filter(md -> !roomDeviceRepository.existsByMeetingRoomIdAndDeviceId(
+                        meeting.getMeetingRoom().getId(), md.getDevice().getId()))
+                .toList();
+
+        currentBorrowed.forEach(md -> {
+            Device d = md.getDevice();
+            d.setAvailableQuantity(d.getAvailableQuantity() + md.getQuantity());
+            deviceRepository.save(d);
+            meetingDeviceRepository.delete(md);
+            meeting.getDevices().remove(md);
+        });
+
+        newList.forEach(req -> borrowAdditionalDevice(meeting, req));
+    }
+
+    private void returnBorrowedDevices(Meeting meeting) {
+        meeting.getDevices().stream()
+                .filter(md -> !roomDeviceRepository.existsByMeetingRoomIdAndDeviceId(
+                        meeting.getMeetingRoom().getId(), md.getDevice().getId()))
+                .forEach(md -> {
+                    Device d = md.getDevice();
+                    d.setAvailableQuantity(d.getAvailableQuantity() + md.getQuantity());
+                    deviceRepository.save(d);
+                });
+    }
+
+    private void updateParticipants(Meeting meeting, List<ParticipantRequest> requests, UUID creatorId) {
+        participantRepository.deleteByMeetingId(meeting.getId());
+        meeting.getParticipants().clear();
+        addParticipantsByEmail(meeting, requests, creatorId);
+    }
+
+    private boolean hasAccess(Meeting meeting, UUID userId) {
+        return meeting.getCreator().getId().equals(userId) ||
+                participantRepository.existsByMeetingIdAndUserId(meeting.getId(), userId);
+    }
+
+    private void validateMeetingTime(LocalDateTime start, LocalDateTime end) {
+        if (end.isBefore(start) || end.isEqual(start))
+            throw new AppException(ErrorStatus.MEETING_END_BEFORE_START);
+        LocalTime st = start.toLocalTime(), et = end.toLocalTime();
+        boolean morning = !st.isBefore(MORNING_START) && !et.isAfter(MORNING_END);
+        boolean afternoon = !st.isBefore(AFTERNOON_START) && !et.isAfter(EVENING_END);
+        if (!(morning || afternoon))
+            throw new AppException(ErrorStatus.MEETING_INVALID_TIME_RANGE);
+    }
+
+    private void validateRoomAvailability(String roomId, LocalDateTime start, LocalDateTime end, String excludeId) {
+        List<Meeting> conflicts = excludeId == null
+                ? meetingRepository.findConflictingMeetings(roomId, start, end)
+                : meetingRepository.findConflictingMeetingsExcludingCurrent(roomId, excludeId, start, end);
+        if (!conflicts.isEmpty())
+            throw new AppException(ErrorStatus.MEETING_ROOM_NOT_AVAILABLE);
     }
 }

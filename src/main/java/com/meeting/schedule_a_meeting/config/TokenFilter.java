@@ -2,10 +2,16 @@ package com.meeting.schedule_a_meeting.config;
 
 import java.io.IOException;
 import java.security.Key;
+import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
@@ -15,6 +21,9 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class TokenFilter extends OncePerRequestFilter {
+
+    @Autowired
+    private JwtTokenUtil jwtTokenUtil;
 
     private static final Key SECRET_KEY = Keys.secretKeyFor(io.jsonwebtoken.SignatureAlgorithm.HS512);
 
@@ -56,13 +65,22 @@ public class TokenFilter extends OncePerRequestFilter {
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String accessToken = authHeader.substring(7);
-            if (!accessToken.isEmpty()) {
+            if (jwtTokenUtil.validateToken(accessToken)) {
                 try {
-                    // Validate JWT token
-                    Jwts.parserBuilder()
-                            .setSigningKey(SECRET_KEY)
-                            .build()
-                            .parseClaimsJws(accessToken);
+
+                    Claims claims = jwtTokenUtil.extractClaims(accessToken);
+
+                    userId = (String) claims.get("userId");
+                    role = (String) claims.get("role");
+                    userName = claims.getSubject();
+
+                    // --- Chèn Authentication vào SecurityContext ---
+                    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userId, null,
+                            List.of(new SimpleGrantedAuthority(role)));
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                    // --------------------------------------------
+
+                    // Gán attribute cho request
                     request.setAttribute("userId", userId);
                     request.setAttribute("userName", userName);
                     request.setAttribute("role", role);

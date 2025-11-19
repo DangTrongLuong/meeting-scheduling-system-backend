@@ -14,13 +14,17 @@ import org.springframework.stereotype.Service;
 
 import com.meeting.schedule_a_meeting.dto.request.users.UserCreationRequest;
 import com.meeting.schedule_a_meeting.dto.request.users.UserUpdateRequest;
+import com.meeting.schedule_a_meeting.dto.response.admin.MeetingRoomResponse;
 import com.meeting.schedule_a_meeting.dto.response.users.UserResponse;
+import com.meeting.schedule_a_meeting.entities.MeetingRoom;
 import com.meeting.schedule_a_meeting.entities.Users;
 import com.meeting.schedule_a_meeting.enums.AuthProvider;
 import com.meeting.schedule_a_meeting.enums.ErrorStatus;
 import com.meeting.schedule_a_meeting.enums.Role;
 import com.meeting.schedule_a_meeting.exception.AppException;
+import com.meeting.schedule_a_meeting.mapper.admin.MeetingRoomMapper;
 import com.meeting.schedule_a_meeting.mapper.users.UserMapper;
+import com.meeting.schedule_a_meeting.repositories.MeetingRoomRepository;
 import com.meeting.schedule_a_meeting.repositories.UserRepository;
 
 import lombok.AccessLevel;
@@ -38,6 +42,8 @@ public class UserService {
     final PasswordEncoder passwordEncoder;
     final UserMapper userMapper;
     final EmailService emailService;
+    private final MeetingRoomRepository meetingRoomRepository;
+    private final MeetingRoomMapper meetingRoomMapper;
 
     private static final String DEFAULT_AVATAR_URL = "http://localhost:8080/uploads/avatars/user-avatar.png";
 
@@ -72,7 +78,7 @@ public class UserService {
 
     public UserResponse updateUserRequest(UUID id, UserUpdateRequest request) {
         Users user = userRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOTFOUND));
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND));
         userMapper.updateUser(user, request);
 
         return userMapper.toUserResponse(userRepository.save(user));
@@ -88,7 +94,7 @@ public class UserService {
 
     public UserResponse getUser(UUID id) {
         return userMapper.toUserResponse(userRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOTFOUND)));
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND)));
     }
 
     public void logout(String bearerToken) {
@@ -96,7 +102,7 @@ public class UserService {
             String token = bearerToken.substring(7);
 
             Users user = userRepository.findByAccessToken(token)
-                    .orElseThrow(() -> new AppException(ErrorStatus.USER_NOTFOUND));
+                    .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND));
 
             user.setAccessToken(null);
             user.setRefreshToken(null);
@@ -165,5 +171,18 @@ public class UserService {
         user.setResetCodeExpiry(null);
         user.setResetAttempts(0);
         userRepository.save(user);
+    }
+
+    public MeetingRoomResponse getById(String id) {
+        MeetingRoom room = meetingRoomRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorStatus.ROOM_NOT_FOUND));
+        return meetingRoomMapper.toResponse(room);
+    }
+
+    public List<MeetingRoomResponse> searchByName(String name) {
+        return meetingRoomRepository.findAll().stream()
+                .filter(r -> r.getName().toLowerCase().contains(name.toLowerCase()))
+                .map(meetingRoomMapper::toResponse)
+                .toList();
     }
 }

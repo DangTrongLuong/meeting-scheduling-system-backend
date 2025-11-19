@@ -17,6 +17,9 @@ public interface UserRepository extends JpaRepository<Users, UUID> {
     Optional<Users> findById(UUID id);
 
     Optional<Users> findByAccessToken(String accessToken);
+
     @Query("SELECT u.email FROM Users u WHERE u.email LIKE %:query%")
     List<String> searchEmailByQuery(String query);
+
+    List<Users> findTop10ByEmailContainingIgnoreCase(String emailPart);
 }
