@@ -97,6 +97,14 @@ public class UserService {
                 .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND)));
     }
 
+
+
+    public boolean checkMail(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
+
+
     public void logout(String bearerToken) {
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
             String token = bearerToken.substring(7);

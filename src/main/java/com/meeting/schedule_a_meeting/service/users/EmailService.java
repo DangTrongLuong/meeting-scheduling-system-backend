@@ -48,4 +48,29 @@ public class EmailService {
         );
         mailSender.send(message);
     }
+
+    public void sendEmailConfirmMeeting(String to, String title, String description,
+                                        String startTime, String endTime,
+                                        String roomName, String createdBy, String createdByEmail) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setSubject("Meeting Invitation");
+
+        String emailContent = String.format(
+                "Dear %s,\n\n" +
+                        "You have been invited to the following meeting:\n\n" +
+                        "Title: %s\n" +
+                        "Description:%s\n" +
+                        "Start Time: %s\n" +
+                        "End Time: %s\n" +
+                        "Room Name: %s\n" +
+                        "Created By: %s - %s\n" +
+                        "Please make sure to attend the meeting on time. If you have any questions, feel free to contact the meeting organizer.\n\n" +
+                        "Best regards,\n%s",
+                to, title, description, startTime, endTime, roomName, createdBy, createdByEmail, createdBy
+        );
+
+        message.setText(emailContent);
+        mailSender.send(message);
+    }
 }

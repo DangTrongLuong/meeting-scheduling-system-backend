@@ -90,6 +90,14 @@ public class UserController {
         return "User has been deleted";
     }
 
+
+    @GetMapping("/check-email")
+    public ResponseEntity<Boolean> checkEmail(@RequestParam String email) {
+        boolean exists = userService.checkMail(email);
+        return ResponseEntity.ok(exists);
+    }
+
+
     @PostMapping("/logout")
     public ResponseEntity<?> logout(@RequestHeader(value = "Authorization", required = false) String bearerToken) {
         try {

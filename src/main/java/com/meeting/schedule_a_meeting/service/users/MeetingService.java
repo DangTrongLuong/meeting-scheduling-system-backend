@@ -40,6 +40,7 @@ public class MeetingService {
     private final RoomDeviceRepository roomDeviceRepository;
     private final MeetingMapper meetingMapper;
 
+
     private static final LocalTime MORNING_START = LocalTime.of(7, 0);
     private static final LocalTime MORNING_END = LocalTime.of(12, 0);
     private static final LocalTime AFTERNOON_START = LocalTime.of(13, 0);
