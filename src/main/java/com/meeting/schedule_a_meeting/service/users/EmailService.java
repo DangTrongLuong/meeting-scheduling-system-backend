@@ -1,7 +1,6 @@
-// com.meeting.schedule_a_meeting.service.EmailService.java
-
 package com.meeting.schedule_a_meeting.service.users;
 
+import com.meeting.schedule_a_meeting.entities.Meeting;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -26,10 +25,26 @@ public class EmailService {
         message.setTo(to);
         message.setSubject("Your Password Reset Code");
         message.setText(
-            "Your password reset code is:\n\n" +
-            "   " + code + "\n\n" +
-            "This code will expire in 10 minutes.\n" +
-            "If you didn't request this, please ignore this email."
+                "Your password reset code is:\n\n" +
+                        "   " + code + "\n\n" +
+                        "This code will expire in 10 minutes.\n" +
+                        "If you didn't request this, please ignore this email."
+        );
+        mailSender.send(message);
+    }
+
+    // ✅ Thêm phương thức gửi email nhắc nhở
+    public void sendReminderEmail(String to, Meeting meeting) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setSubject("Nhắc nhở cuộc họp: " + meeting.getTitle());
+        message.setText(
+                "Xin chào,\n\n" +
+                        "Cuộc họp \"" + meeting.getTitle() + "\" sẽ bắt đầu sau 15 phút.\n\n" +
+                        "Thời gian: " + meeting.getStartTime() + "\n" +
+                        "Phòng họp: " + meeting.getMeetingRoom().getName() + "\n\n" +
+                        "Vui lòng chuẩn bị để tham gia đúng giờ.\n\n" +
+                        "Trân trọng."
         );
         mailSender.send(message);
     }
