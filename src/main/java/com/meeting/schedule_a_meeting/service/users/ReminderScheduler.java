@@ -1,7 +1,7 @@
 package com.meeting.schedule_a_meeting.service.users;
 
-import com.meeting.schedule_a_meeting.entities.Meeting;
-import com.meeting.schedule_a_meeting.repositories.meeting.MeetingRepository;
+import com.meeting.schedule_a_meeting.entities.MeetingParticipant;
+import com.meeting.schedule_a_meeting.repositories.meeting.MeetingParticipantRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
@@ -11,27 +11,34 @@ import java.util.List;
 @Component
 public class ReminderScheduler {
 
-    private final MeetingRepository meetingRepository;
+    private final MeetingParticipantRepository participantRepository;
     private final EmailService emailService;
 
-    public ReminderScheduler(MeetingRepository meetingRepository, EmailService emailService) {
-        this.meetingRepository = meetingRepository;
+    public ReminderScheduler(MeetingParticipantRepository participantRepository,
+                             EmailService emailService) {
+        this.participantRepository = participantRepository;
         this.emailService = emailService;
     }
 
-    @Scheduled(fixedRate = 60000) // chạy mỗi phút
+    @Scheduled(fixedRate = 60000) // chạy mỗi 1 phút
     public void sendMeetingReminders() {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime reminderTime = now.plusMinutes(15);
 
-        List<Meeting> meetings = meetingRepository.findUpcomingMeetingsForReminder(now, reminderTime);
+        // Lấy tất cả người tham gia chưa gửi nhắc
+        List<MeetingParticipant> participants =
+                participantRepository.findParticipantsForReminder(now, reminderTime);
 
+        for (MeetingParticipant participant : participants) {
 
-        for (Meeting meeting : meetings) {
-            meeting.getParticipants().forEach(participant -> {
-                emailService.sendReminderEmail(participant.getUser().getEmail(), meeting);
-            });
+            // Gửi email
+            emailService.sendReminderEmail(participant.getUser().getEmail(), participant.getMeeting());
+
+            // Đánh dấu đã gửi
+            participant.setReminderSent(true);
+
+            // Lưu lại vào DB
+            participantRepository.save(participant);
         }
-
     }
 }
