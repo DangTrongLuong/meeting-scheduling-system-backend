@@ -112,9 +112,9 @@ public class MeetingController {
     @PutMapping("/{meetingId}")
     public ResponseEntity<ApiResponse<MeetingResponse>> updateMeeting(
             @PathVariable String meetingId,
-            @Valid @RequestBody UpdateMeetingRequest request) {
+            @RequestBody UpdateMeetingRequest request,
+            @RequestHeader("userId") UUID userId) {
 
-        UUID userId = getCurrentUserId();
         MeetingResponse response = meetingService.updateMeeting(meetingId, request, userId);
 
         return ResponseEntity.ok(
