@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,4 +30,18 @@ public interface MeetingParticipantRepository extends JpaRepository<MeetingParti
     List<MeetingParticipant> findByUserIdWithMeeting(@Param("userId") UUID userId);
 
     void deleteByMeetingId(String meetingId);
+
+
+    // ✅ Query mới: tìm những participant cần gửi nhắc nhở
+    @Query("""
+        SELECT mp 
+        FROM MeetingParticipant mp
+        WHERE mp.reminderSent = false
+          AND mp.meeting.status = 'SCHEDULED'
+          AND mp.meeting.startTime BETWEEN :now AND :reminderTime
+    """)
+    List<MeetingParticipant> findParticipantsForReminder(
+            @Param("now") LocalDateTime now,
+            @Param("reminderTime") LocalDateTime reminderTime
+    );
 }
