@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.meeting.schedule_a_meeting.entities.Users;
@@ -24,4 +26,6 @@ public interface UserRepository extends JpaRepository<Users, UUID> {
     List<String> searchEmailByQuery(String query);
 
     List<Users> findTop10ByEmailContainingIgnoreCase(String emailPart);
+
+    Page<Users> findAll(Pageable pageable);
 }

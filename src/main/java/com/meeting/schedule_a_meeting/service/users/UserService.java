@@ -6,16 +6,20 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.meeting.schedule_a_meeting.dto.request.users.UserCreationRequest;
 import com.meeting.schedule_a_meeting.dto.request.users.UserUpdateRequest;
 import com.meeting.schedule_a_meeting.dto.response.admin.MeetingRoomResponse;
 import com.meeting.schedule_a_meeting.dto.response.users.UserResponse;
+import com.meeting.schedule_a_meeting.entities.Meeting;
 import com.meeting.schedule_a_meeting.entities.MeetingRoom;
 import com.meeting.schedule_a_meeting.entities.Users;
 import com.meeting.schedule_a_meeting.enums.AuthProvider;
@@ -26,6 +30,9 @@ import com.meeting.schedule_a_meeting.mapper.admin.MeetingRoomMapper;
 import com.meeting.schedule_a_meeting.mapper.users.UserMapper;
 import com.meeting.schedule_a_meeting.repositories.MeetingRoomRepository;
 import com.meeting.schedule_a_meeting.repositories.UserRepository;
+import com.meeting.schedule_a_meeting.repositories.meeting.MeetingDeviceRepository;
+import com.meeting.schedule_a_meeting.repositories.meeting.MeetingParticipantRepository;
+import com.meeting.schedule_a_meeting.repositories.meeting.MeetingRepository;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +51,9 @@ public class UserService {
     final EmailService emailService;
     private final MeetingRoomRepository meetingRoomRepository;
     private final MeetingRoomMapper meetingRoomMapper;
+    final MeetingRepository meetingRepository;
+    final MeetingParticipantRepository participantRepository;
+    final MeetingDeviceRepository meetingDeviceRepository;
 
     private static final String DEFAULT_AVATAR_URL = "http://localhost:8080/uploads/avatars/user-avatar.png";
 
@@ -84,8 +94,20 @@ public class UserService {
         return userMapper.toUserResponse(userRepository.save(user));
     }
 
+    @Transactional
     public void deleteUser(UUID id) {
-        userRepository.deleteById(id);
+        Users user = userRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND));
+
+        List<Meeting> createdMeetings = meetingRepository.findByCreatorId(id);
+        for (Meeting m : createdMeetings) {
+            participantRepository.deleteByMeetingId(m.getId());
+            meetingDeviceRepository.deleteByMeetingId(m.getId());
+            meetingRepository.delete(m);
+        }
+
+        participantRepository.deleteByUserId(id);
+        userRepository.delete(user);
     }
 
     public List<Users> getUsers() {
@@ -97,13 +119,9 @@ public class UserService {
                 .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND)));
     }
 
-
-
     public boolean checkMail(String email) {
         return userRepository.existsByEmail(email);
     }
-
-
 
     public void logout(String bearerToken) {
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
@@ -192,5 +210,11 @@ public class UserService {
                 .filter(r -> r.getName().toLowerCase().contains(name.toLowerCase()))
                 .map(meetingRoomMapper::toResponse)
                 .toList();
+    }
+
+    public Page<Users> getUsersByPage(int page) {
+        int pageSize = 10;
+        PageRequest pageable = PageRequest.of(page, pageSize);
+        return userRepository.findAll(pageable);
     }
 }

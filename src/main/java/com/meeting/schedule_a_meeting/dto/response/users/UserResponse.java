@@ -1,5 +1,6 @@
 package com.meeting.schedule_a_meeting.dto.response.users;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 import com.meeting.schedule_a_meeting.enums.Role;
@@ -24,4 +25,7 @@ public class UserResponse {
     Role role;
     int age;
     String address;
+    LocalDate createdAt;
+    boolean active;
+    boolean twoFactorEnabled;
 }
