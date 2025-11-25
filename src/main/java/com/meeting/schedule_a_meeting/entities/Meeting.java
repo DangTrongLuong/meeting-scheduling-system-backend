@@ -1,5 +1,6 @@
 package com.meeting.schedule_a_meeting.entities;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -76,12 +77,16 @@ public class Meeting {
     @Column(name = "cancellation_reason", length = 500)
     private String cancellationReason;
 
+    @Column(name = "created_by", nullable = false)
+    private String createdBy;
+
     @OneToMany(mappedBy = "meeting", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<MeetingParticipant> participants = new ArrayList<>();
 
     @OneToMany(mappedBy = "meeting", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @JsonManagedReference
     private List<MeetingDevice> devices = new ArrayList<>();
 
     @PrePersist

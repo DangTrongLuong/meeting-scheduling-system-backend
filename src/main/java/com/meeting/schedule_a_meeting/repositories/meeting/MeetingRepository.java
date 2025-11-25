@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -38,7 +39,10 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
 
 
     @Query("SELECT DISTINCT m FROM Meeting m " +
-            "LEFT JOIN m.participants p " +
+            "LEFT JOIN FETCH m.meetingRoom " +
+            "LEFT JOIN FETCH m.creator " +
+            "LEFT JOIN FETCH m.participants p " +
+            "LEFT JOIN FETCH p.user " +
             "WHERE (m.creator.id = :userId OR p.user.id = :userId) " +
             "AND m.status != 'CANCELLED' " +
             "ORDER BY m.startTime DESC")
@@ -68,4 +72,8 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
             @Param("now") LocalDateTime now,
             @Param("reminderTime") LocalDateTime reminderTime
     );
+
+    @Query("SELECT m FROM Meeting m LEFT JOIN FETCH m.participants p LEFT JOIN FETCH p.user WHERE m.id = :meetingId")
+    Optional<Meeting> findByIdWithParticipants(@Param("meetingId") String meetingId);
+
 }
