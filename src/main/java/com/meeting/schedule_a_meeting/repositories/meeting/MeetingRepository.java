@@ -68,4 +68,15 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
             @Param("now") LocalDateTime now,
             @Param("reminderTime") LocalDateTime reminderTime
     );
+
+
+    @Query("""
+        SELECT m FROM Meeting m
+        JOIN FETCH m.creator
+        WHERE m.status = 'SCHEDULED'
+        AND m.startTime BETWEEN :now AND :reminderTime
+        """)
+    List<Meeting> findMeetingsForCreatorReminder(@Param("now") LocalDateTime now,
+                                                 @Param("reminderTime") LocalDateTime reminderTime);
+
 }

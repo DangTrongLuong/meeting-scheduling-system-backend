@@ -32,16 +32,19 @@ public interface MeetingParticipantRepository extends JpaRepository<MeetingParti
     void deleteByMeetingId(String meetingId);
 
 
-    // ✅ Query mới: tìm những participant cần gửi nhắc nhở
+
     @Query("""
-        SELECT mp 
+        SELECT mp
         FROM MeetingParticipant mp
+        JOIN FETCH mp.user u
+        JOIN FETCH mp.meeting m
         WHERE mp.reminderSent = false
-          AND mp.meeting.status = 'SCHEDULED'
-          AND mp.meeting.startTime BETWEEN :now AND :reminderTime
-    """)
-    List<MeetingParticipant> findParticipantsForReminder(
+        AND m.status = 'SCHEDULED'
+        AND m.startTime BETWEEN :now AND :reminderTime
+        """)
+    List<MeetingParticipant> findParticipantsForReminderWithUserAndMeeting(
             @Param("now") LocalDateTime now,
             @Param("reminderTime") LocalDateTime reminderTime
     );
+
 }
