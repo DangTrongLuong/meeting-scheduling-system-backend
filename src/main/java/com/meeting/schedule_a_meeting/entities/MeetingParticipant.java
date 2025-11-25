@@ -1,5 +1,6 @@
 package com.meeting.schedule_a_meeting.entities;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import com.meeting.schedule_a_meeting.enums.ParticipantRole;
@@ -29,8 +30,12 @@ public class MeetingParticipant {
     @Column(length = 8, updatable = false)
     private String id;
 
+    @Column(name = "guest_email")
+    private String guestEmail;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "meeting_id", nullable = false)
+    @JsonBackReference
     private Meeting meeting;
 
     @ManyToOne(fetch = FetchType.LAZY)
