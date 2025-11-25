@@ -21,6 +21,7 @@ public class AuthenticationService {
 
     UserRepository userRepository;
     JwtTokenUtil jwtTokenUtil;
+    TwoFactorAuthService twoFactorAuthService;
 
     private static final String DEFAULT_AVATAR_URL = "http://localhost:8080/uploads/avatars/user-avatar.png";
 
@@ -37,12 +38,39 @@ public class AuthenticationService {
             throw new AppException(ErrorStatus.INVALID_CREDENTIALS);
         }
 
+        // YÊU CẦU 2FA
+        if (user.isTwoFactorEnabled()) {
+            throw new AppException(ErrorStatus.TWO_FACTOR_REQUIRED);
+        }
+
+        // Login bình thường nếu chưa bật 2FA
+        return generateTokenResponse(user);
+    }
+
+    // API mới: xác minh 2FA rồi mới cấp token
+    public AuthenticationResponse verify2FACodeAndLogin(String email, String code) {
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_EXISTED));
+
+        if (!user.isTwoFactorEnabled()) {
+            throw new AppException(ErrorStatus.TWO_FACTOR_NOT_ENABLED);
+        }
+
+        if (!twoFactorAuthService.isValidCode(user.getTwoFactorSecret(), code)) {
+            throw new AppException(ErrorStatus.INVALID_2FA_CODE);
+        }
+
+        return generateTokenResponse(user);
+    }
+
+    private AuthenticationResponse generateTokenResponse(Users user) {
+        String accessToken = jwtTokenUtil.generateToken(
+                user.getEmail(), user.getId().toString(), user.getRole().name());
+
         if (user.getAvatar_url() == null || user.getAvatar_url().isEmpty()) {
             user.setAvatar_url(DEFAULT_AVATAR_URL);
             userRepository.save(user);
         }
-
-        String accessToken = jwtTokenUtil.generateToken(user.getEmail(), user.getId().toString(), user.getRole().name());
 
         return AuthenticationResponse.builder()
                 .authenticated(true)

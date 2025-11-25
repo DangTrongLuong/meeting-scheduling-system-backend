@@ -103,4 +103,10 @@ public class Users {
 
     @Column(name = "reset_attempts")
     Integer resetAttempts = 0;
+
+    @Column(name = "two_factor_secret", length = 100)
+    private String twoFactorSecret;
+
+    @Column(name = "two_factor_enabled", nullable = false)
+    private boolean twoFactorEnabled = false;
 }

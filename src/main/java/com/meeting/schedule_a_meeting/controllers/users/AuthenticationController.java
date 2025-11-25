@@ -31,4 +31,19 @@ public class AuthenticationController {
 
         return ResponseEntity.ok(body);
     }
+
+    @PostMapping("/verify-2fa")
+    public ResponseEntity<?> verify2FA(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String code = body.get("code");
+
+        AuthenticationResponse data = authenticationService.verify2FACodeAndLogin(email, code);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("message", "Login successful");
+        response.put("data", data);
+
+        return ResponseEntity.ok(response);
+    }
 }
