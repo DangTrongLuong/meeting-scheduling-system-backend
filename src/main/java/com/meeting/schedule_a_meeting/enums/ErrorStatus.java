@@ -55,6 +55,11 @@ public enum ErrorStatus {
     MEETING_CANNOT_EDIT_PAST(400, "Cannot edit past meetings!"),
     MEETING_CREATOR_REQUIRED(403, "Only meeting creator can perform this action!"),
 
+    // Two-Factor Authentication errors
+    TWO_FACTOR_REQUIRED(428, "2FA is required for this account"),
+    INVALID_2FA_CODE(401, "Invalid 2FA code"),
+    TWO_FACTOR_NOT_ENABLED(400, "2FA is not enabled for this account"),
+
     IMAGE_UPLOAD_FAILED(500, "Failed to upload image");
 
     private final int status;

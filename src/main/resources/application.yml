@@ -22,7 +22,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/meeting_scheduling_system?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
-    password: Luong23@
+    password: 230605
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       connection-timeout: 30000
