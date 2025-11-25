@@ -92,6 +92,7 @@ public class SecurityConfig {
         configuration.addAllowedMethod("PUT");
         configuration.addAllowedMethod("DELETE");
         configuration.addAllowedMethod("OPTIONS");
+        configuration.addAllowedMethod("PATCH");
         configuration.addAllowedHeader("*");
         configuration.setAllowCredentials(true);
         configuration.addExposedHeader("Access-Control-Allow-Origin");

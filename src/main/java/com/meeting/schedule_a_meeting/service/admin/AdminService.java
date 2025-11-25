@@ -3,6 +3,7 @@ package com.meeting.schedule_a_meeting.service.admin;
 import java.security.Key;
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.UUID;
 
 import com.meeting.schedule_a_meeting.enums.AuthProvider;
 import com.meeting.schedule_a_meeting.repositories.AdminRepository;
@@ -36,7 +37,7 @@ public class AdminService {
     private static final String DEFAULT_AVATAR_URL = "http://localhost:8080/uploads/avatars/admin-avatar.png";
 
     public AdminService(AdminRepository adminRepository,
-                        PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder) {
         this.adminRepository = adminRepository;
         this.passwordEncoder = passwordEncoder;
     }
@@ -100,7 +101,6 @@ public class AdminService {
         Users admin = adminRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorStatus.ADMIN_NOT_EXISTED));
 
-
         if (admin.getAuthProvider() == AuthProvider.GOOGLE || admin.getGoogleId() != null) {
             throw new AppException(ErrorStatus.RESET_PASSWORD_NOT_ALLOWED_FOR_GOOGLE_USER);
         }
@@ -108,8 +108,11 @@ public class AdminService {
     }
 
     public boolean checkCurrentPassword(String email, String currentPassword) {
-        Users admin = adminRepository.findByEmail(email).orElseThrow(() -> new AppException(ErrorStatus.ADMIN_NOT_EXISTED));;
-        if (admin == null) return false;
+        Users admin = adminRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorStatus.ADMIN_NOT_EXISTED));
+        ;
+        if (admin == null)
+            return false;
 
         return passwordEncoder.matches(currentPassword, admin.getPassword());
     }
@@ -120,5 +123,36 @@ public class AdminService {
 
         admin.setPassword(passwordEncoder.encode(newPassword));
         adminRepository.save(admin);
+    }
+
+    public void changeUserPasswordByAdmin(UUID userId, String newPassword) {
+        Users user = adminRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_EXISTED));
+
+        if (user.getRole() == Role.SUPERADMIN) {
+            throw new AppException(ErrorStatus.FORBIDDEN);
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setResetCode(null);
+        user.setResetCodeExpiry(null);
+        user.setResetAttempts(0);
+
+        adminRepository.save(user);
+    }
+
+    public void updateUserRole(UUID userId, Role newRole) {
+        Users user = adminRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_EXISTED));
+
+        if (user.getRole() == Role.SUPERADMIN) {
+            throw new AppException(ErrorStatus.FORBIDDEN, "Cannot change SUPERADMIN role");
+        }
+        if (newRole == Role.SUPERADMIN) {
+            throw new AppException(ErrorStatus.FORBIDDEN, "Cannot assign SUPERADMIN role");
+        }
+
+        user.setRole(newRole);
+        adminRepository.save(user);
     }
 }

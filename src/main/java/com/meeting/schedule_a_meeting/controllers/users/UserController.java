@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -90,13 +91,11 @@ public class UserController {
         return "User has been deleted";
     }
 
-
     @GetMapping("/check-email")
     public ResponseEntity<Boolean> checkEmail(@RequestParam String email) {
         boolean exists = userService.checkMail(email);
         return ResponseEntity.ok(exists);
     }
-
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(@RequestHeader(value = "Authorization", required = false) String bearerToken) {
@@ -258,5 +257,10 @@ public class UserController {
             response.put("message", "Error removing background: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
+    }
+
+    @GetMapping("/page")
+    public Page<Users> getUsers(@RequestParam(defaultValue = "0") int page) {
+        return userService.getUsersByPage(page);
     }
 }
