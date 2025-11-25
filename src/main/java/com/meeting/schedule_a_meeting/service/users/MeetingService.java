@@ -56,7 +56,6 @@ public class MeetingService {
 
         Users creator = userRepository.findById(creatorId)
                 .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND));
-
         MeetingRoom room = meetingRoomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new AppException(ErrorStatus.ROOM_NOT_FOUND));
 
@@ -68,19 +67,24 @@ public class MeetingService {
                 .meetingRoom(room)
                 .creator(creator)
                 .status(MeetingStatus.SCHEDULED)
+                .createdBy(creator.getName())
                 .build();
 
-        final Meeting savedMeeting = meetingRepository.save(meeting);
+        // ✅ Lưu meeting trước khi thêm participants
+        meetingRepository.saveAndFlush(meeting);
 
         assignDefaultRoomDevices(meeting);
-
         addParticipantsByEmail(meeting, request.getParticipants(), creatorId);
 
         if (request.getBorrowedDevices() != null && !request.getBorrowedDevices().isEmpty()) {
-            request.getBorrowedDevices().forEach(deviceReq -> borrowAdditionalDevice(savedMeeting, deviceReq));
+            request.getBorrowedDevices().forEach(deviceReq -> borrowAdditionalDevice(meeting, deviceReq));
         }
 
-        return meetingMapper.toMeetingResponse(meeting);
+        // ✅ Refresh meeting từ DB để tránh lỗi commit và lấy participants
+        Meeting updatedMeeting = meetingRepository.findById(meeting.getId())
+                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+
+        return meetingMapper.toMeetingResponse(updatedMeeting);
     }
 
     /* ====================== UPDATE MEETING ====================== */
@@ -162,8 +166,6 @@ public class MeetingService {
 
         return meetingMapper.toMeetingResponse(saved);
     }
-
-
     public List<RoomDeviceResponse> getRoomDevices(String roomId) {
         return roomDeviceRepository.findActiveDevicesByRoom(roomId).stream()
                 .map(rd -> RoomDeviceResponse.builder()
@@ -237,18 +239,32 @@ public class MeetingService {
         }
 
         meeting.setStatus(MeetingStatus.CANCELLED);
+        meeting.setCancelledAt(LocalDateTime.now());
+        meeting.setCancellationReason(reason);
+        meetingRepository.save(meeting);
 
         returnBorrowedDevices(meeting);
+        // ✅ Force load participants
+        meeting.getParticipants().size();
+
+        emailService.sendCancelMeetingEmail(meeting.getCreator().getEmail(), meeting);
+        for (MeetingParticipant participant : meeting.getParticipants()) {
+            emailService.sendCancelMeetingEmail(participant.getUser().getEmail(), meeting);
+        }
     }
 
     /* ====================== GET METHODS ====================== */
     public MeetingResponse getMeetingById(String meetingId, UUID userId) {
-        Meeting meeting = meetingRepository.findById(meetingId)
+        Meeting meeting = meetingRepository.findByIdWithParticipants(meetingId)
                 .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+
         if (!hasAccess(meeting, userId)) {
             throw new AppException(ErrorStatus.FORBIDDEN);
         }
-        return meetingMapper.toMeetingResponse(meeting);
+        Meeting updatedMeeting = meetingRepository.findById(meeting.getId())
+                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+
+        return meetingMapper.toMeetingResponse(updatedMeeting);
     }
 
     public List<MeetingResponse> getMyMeetings(UUID userId) {
@@ -288,28 +304,32 @@ public class MeetingService {
     }
 
     private void addParticipantsByEmail(Meeting meeting, List<ParticipantRequest> requests, UUID creatorId) {
-        if (requests == null)
-            return;
-        requests.forEach(req -> {
-            Users user = userRepository.findByEmail(req.getEmail())
-                    .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND));
-            if (user.getId().equals(creatorId))
-                return;
+        if (requests == null || requests.isEmpty()) return;
 
-            String meetingId = meeting.getId();
-            UUID userId = user.getId();
-            participantRepository.existsByMeetingIdAndUserId(meetingId, userId);
-            if (participantRepository.existsByMeetingIdAndUserId(meetingId, userId)) {
+        for (ParticipantRequest req : requests) {
+            String email = req.getEmail();
+            if (email == null || email.isBlank()) continue;
+
+            email = email.trim();
+
+            Users user = userRepository.findByEmailIgnoreCase(email)
+                    .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND));
+
+            if (user.getId().equals(creatorId)) continue;
+
+            if (participantRepository.existsByMeetingIdAndUserId(meeting.getId(), user.getId())) {
                 throw new AppException(ErrorStatus.PARTICIPANT_ALREADY_INVITED);
             }
+
             MeetingParticipant mp = MeetingParticipant.builder()
-                    .meeting(meeting).user(user)
+                    .meeting(meeting)
+                    .user(user)
                     .role(req.getRole() != null ? req.getRole() : ParticipantRole.REQUIRED)
-                    .status(ParticipantStatus.PENDING).invitedAt(LocalDateTime.now())
+                    .status(ParticipantStatus.PENDING)
+                    .invitedAt(LocalDateTime.now())
                     .build();
             participantRepository.save(mp);
-            meeting.getParticipants().add(mp);
-        });
+        }
     }
 
     private void borrowAdditionalDevice(Meeting meeting, DeviceBorrowRequest req) {

@@ -1,5 +1,6 @@
 package com.meeting.schedule_a_meeting.dto.request.users;
 
+import com.meeting.schedule_a_meeting.dto.request.users.meetting.ParticipantRequest;
 import lombok.*;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,6 +17,5 @@ public class CreateMeetingRequest {
     private LocalDateTime endTime;
     private String roomId;
     private String status;
-    private List<String> invitedEmails;
-
+    private List<ParticipantRequest> participants;
 }

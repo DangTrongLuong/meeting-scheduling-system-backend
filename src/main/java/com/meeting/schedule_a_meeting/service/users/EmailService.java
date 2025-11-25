@@ -73,38 +73,46 @@ public class EmailService {
         message.setText(emailContent);
         mailSender.send(message);
     }
-    public void sendEmailMeetingUpdated(
-            String to,
-            String meetingTitle,
-            String description,
-            String startTime,
-            String endTime,
-            String roomName,
-            String updatedBy,
-            String updatedByEmail
-    ) {
+
+    public void sendCancelMeetingEmail(String to, Meeting meeting) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);
-        message.setSubject("Meeting Updated Notification");
+        message.setSubject("Thông báo hủy cuộc họp: " + meeting.getTitle());
+        message.setText(
+                "Xin chào,\n\n" +
+                        "Cuộc họp \"" + meeting.getTitle() + "\" đã bị hủy.\n\n" +
+                        "Thời gian: " + meeting.getStartTime() + " - " + meeting.getEndTime() + "\n" +
+                        "Phòng họp: " + meeting.getMeetingRoom().getName() + "\n" +
+                        "Lý do: " + (meeting.getCancellationReason() != null ? meeting.getCancellationReason() : "Không có thông tin") + "\n" +
+                        "Thời điểm hủy: " + meeting.getCancelledAt() + "\n\n" +
+                        "Liên hệ người tạo: " + meeting.getCreator().getEmail() + "\n\n" +
+                        "Trân trọng."
+        );
+        mailSender.send(message);
+    }
+
+    public void sendEmailMeetingUpdated(String to, String title, String description,
+                                        String startTime, String endTime,
+                                        String roomName, String updatedBy, String updatedByEmail) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setSubject("Meeting Updated: " + title);
 
         String emailContent = String.format(
                 "Dear %s,\n\n" +
-                        "The meeting you were invited to has been UPDATED.\n\n" +
-                        "Updated Meeting Details:\n" +
+                        "The meeting has been updated:\n\n" +
                         "Title: %s\n" +
                         "Description: %s\n" +
                         "Start Time: %s\n" +
                         "End Time: %s\n" +
-                        "Room Name: %s\n" +
+                        "Room: %s\n" +
                         "Updated By: %s (%s)\n\n" +
-                        "Please check the meeting schedule again.\n\n" +
+                        "Please check the updated details and attend on time.\n\n" +
                         "Best regards,\n%s",
-                to, meetingTitle, description, startTime, endTime, roomName,
-                updatedBy, updatedByEmail, updatedBy
+                to, title, description, startTime, endTime, roomName, updatedBy, updatedByEmail, updatedBy
         );
 
         message.setText(emailContent);
         mailSender.send(message);
     }
-
 }
