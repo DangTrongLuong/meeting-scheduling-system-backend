@@ -137,7 +137,6 @@ public class MeetingService {
 
         Meeting saved = meetingRepository.save(meeting);
 
-        /*GỬI EMAIL CHO TẤT CẢ NGƯỜI THAM DỰ + NGƯỜI TẠO*/
         saved.getParticipants().forEach(mp -> {
             emailService.sendEmailMeetingUpdated(
                     mp.getUser().getEmail(),                    // to
