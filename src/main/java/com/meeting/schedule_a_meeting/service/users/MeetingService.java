@@ -70,7 +70,6 @@ public class MeetingService {
                 .createdBy(creator.getName())
                 .build();
 
-        // ✅ Lưu meeting trước khi thêm participants
         meetingRepository.saveAndFlush(meeting);
 
         assignDefaultRoomDevices(meeting);
@@ -80,7 +79,6 @@ public class MeetingService {
             request.getBorrowedDevices().forEach(deviceReq -> borrowAdditionalDevice(meeting, deviceReq));
         }
 
-        // ✅ Refresh meeting từ DB để tránh lỗi commit và lấy participants
         Meeting updatedMeeting = meetingRepository.findById(meeting.getId())
                 .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
 
