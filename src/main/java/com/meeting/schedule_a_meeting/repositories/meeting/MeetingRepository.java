@@ -15,7 +15,7 @@ import java.util.UUID;
 @Repository
 public interface MeetingRepository extends JpaRepository<Meeting, String> {
 
-    // Kiểm tra xung đột thời gian cho cùng phòng
+    // Kiểm tra xung đột thời gian cùng phòng
     @Query("SELECT m FROM Meeting m WHERE m.meetingRoom.id = :roomId " +
             "AND m.status != 'CANCELLED' " +
             "AND NOT (m.endTime <= :startTime OR m.startTime >= :endTime)")
@@ -25,7 +25,7 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
             @Param("endTime") LocalDateTime endTime
     );
 
-
+    // Kiểm tra xung đột khi update
     @Query("SELECT m FROM Meeting m WHERE m.meetingRoom.id = :roomId " +
             "AND m.id != :meetingId " +
             "AND m.status != 'CANCELLED' " +
@@ -37,7 +37,7 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
             @Param("endTime") LocalDateTime endTime
     );
 
-
+    // Tìm các lịch mà user tạo hoặc tham gia
     @Query("SELECT DISTINCT m FROM Meeting m " +
             "LEFT JOIN FETCH m.meetingRoom " +
             "LEFT JOIN FETCH m.creator " +
@@ -48,7 +48,7 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
             "ORDER BY m.startTime DESC")
     List<Meeting> findMeetingsByUser(@Param("userId") UUID userId);
 
-
+    // Tìm theo phòng và ngày
     @Query("SELECT m FROM Meeting m WHERE m.meetingRoom.id = :roomId " +
             "AND m.status != 'CANCELLED' " +
             "AND m.startTime >= :startDate " +
@@ -60,9 +60,7 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
             @Param("endDate") LocalDateTime endDate
     );
 
-
     List<Meeting> findByCreatorIdOrderByStartTimeDesc(UUID creatorId);
-
 
     List<Meeting> findByStatusOrderByStartTimeAsc(MeetingStatus status);
 
@@ -73,7 +71,6 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
             @Param("reminderTime") LocalDateTime reminderTime
     );
 
-
     @Query("""
         SELECT m FROM Meeting m
         JOIN FETCH m.creator
@@ -82,5 +79,14 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
         """)
     List<Meeting> findMeetingsForCreatorReminder(@Param("now") LocalDateTime now,
                                                  @Param("reminderTime") LocalDateTime reminderTime);
+    @Query("""
+        SELECT m FROM Meeting m
+        LEFT JOIN FETCH m.creator
+        LEFT JOIN FETCH m.meetingRoom
+        LEFT JOIN FETCH m.participants p
+        LEFT JOIN FETCH p.user
+        WHERE m.id = :id
+        """)
+    Optional<Meeting> findByIdWithParticipants(@Param("id") String id);
 
 }
