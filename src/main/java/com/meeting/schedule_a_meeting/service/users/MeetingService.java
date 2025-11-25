@@ -9,6 +9,7 @@ import com.meeting.schedule_a_meeting.exception.AppException;
 import com.meeting.schedule_a_meeting.mapper.users.MeetingMapper;
 import com.meeting.schedule_a_meeting.repositories.*;
 import com.meeting.schedule_a_meeting.repositories.meeting.*;
+import com.meeting.schedule_a_meeting.service.users.EmailService;
 
 import com.meeting.schedule_a_meeting.repositories.meeting.MeetingRepository;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class MeetingService {
     private final DeviceRepository deviceRepository;
     private final RoomDeviceRepository roomDeviceRepository;
     private final MeetingMapper meetingMapper;
+    private final EmailService emailService;
 
 
     private static final LocalTime MORNING_START = LocalTime.of(7, 0);
@@ -97,13 +99,13 @@ public class MeetingService {
             throw new AppException(ErrorStatus.MEETING_CANNOT_EDIT_PAST);
         }
 
-        // Cập nhật thông tin cơ bản
+        // Update title + description
         if (request.getTitle() != null)
             meeting.setTitle(request.getTitle());
         if (request.getDescription() != null)
             meeting.setDescription(request.getDescription());
 
-        // Cập nhật thời gian + phòng
+        // Update time
         if (request.getStartTime() != null && request.getEndTime() != null) {
             validateMeetingTime(request.getStartTime(), request.getEndTime());
             validateRoomAvailability(
@@ -113,6 +115,7 @@ public class MeetingService {
             meeting.setEndTime(request.getEndTime());
         }
 
+        // Update room
         if (request.getRoomId() != null && !request.getRoomId().equals(meeting.getMeetingRoom().getId())) {
             MeetingRoom newRoom = meetingRoomRepository.findById(request.getRoomId())
                     .orElseThrow(() -> new AppException(ErrorStatus.ROOM_NOT_FOUND));
@@ -120,18 +123,46 @@ public class MeetingService {
             meeting.setMeetingRoom(newRoom);
         }
 
-        // Cập nhật participants
+        // Update participants
         if (request.getParticipants() != null) {
             updateParticipants(meeting, request.getParticipants(), userId);
         }
 
-        // Cập nhật chỉ borrowed devices
+        // Update borrowed devices
         if (request.getBorrowedDevices() != null) {
             updateBorrowedDevices(meeting, request.getBorrowedDevices());
         }
 
-        return meetingMapper.toMeetingResponse(meetingRepository.save(meeting));
+        Meeting saved = meetingRepository.save(meeting);
+
+        /*GỬI EMAIL CHO TẤT CẢ NGƯỜI THAM DỰ + NGƯỜI TẠO*/
+        saved.getParticipants().forEach(mp -> {
+            emailService.sendEmailMeetingUpdated(
+                    mp.getUser().getEmail(),                    // to
+                    saved.getTitle(),                           // meetingTitle
+                    saved.getDescription(),                     // description
+                    saved.getStartTime().toString(),            // start
+                    saved.getEndTime().toString(),              // end
+                    saved.getMeetingRoom().getName(),           // room
+                    saved.getCreator().getName(),               // updatedBy
+                    saved.getCreator().getEmail()               // updatedByEmail
+            );
+        });
+        emailService.sendEmailMeetingUpdated(
+                saved.getCreator().getEmail(),
+                saved.getTitle(),
+                saved.getDescription(),
+                saved.getStartTime().toString(),
+                saved.getEndTime().toString(),
+                saved.getMeetingRoom().getName(),
+                saved.getCreator().getName(),
+                saved.getCreator().getEmail()
+        );
+        //
+
+        return meetingMapper.toMeetingResponse(saved);
     }
+
 
     public List<RoomDeviceResponse> getRoomDevices(String roomId) {
         return roomDeviceRepository.findActiveDevicesByRoom(roomId).stream()
