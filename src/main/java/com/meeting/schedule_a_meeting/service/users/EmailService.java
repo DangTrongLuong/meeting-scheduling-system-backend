@@ -73,4 +73,38 @@ public class EmailService {
         message.setText(emailContent);
         mailSender.send(message);
     }
+    public void sendEmailMeetingUpdated(
+            String to,
+            String meetingTitle,
+            String description,
+            String startTime,
+            String endTime,
+            String roomName,
+            String updatedBy,
+            String updatedByEmail
+    ) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setSubject("Meeting Updated Notification");
+
+        String emailContent = String.format(
+                "Dear %s,\n\n" +
+                        "The meeting you were invited to has been UPDATED.\n\n" +
+                        "Updated Meeting Details:\n" +
+                        "Title: %s\n" +
+                        "Description: %s\n" +
+                        "Start Time: %s\n" +
+                        "End Time: %s\n" +
+                        "Room Name: %s\n" +
+                        "Updated By: %s (%s)\n\n" +
+                        "Please check the meeting schedule again.\n\n" +
+                        "Best regards,\n%s",
+                to, meetingTitle, description, startTime, endTime, roomName,
+                updatedBy, updatedByEmail, updatedBy
+        );
+
+        message.setText(emailContent);
+        mailSender.send(message);
+    }
+
 }
