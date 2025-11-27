@@ -15,37 +15,45 @@ import java.util.UUID;
 @Repository
 public interface MeetingParticipantRepository extends JpaRepository<MeetingParticipant, String> {
 
-    // Tìm participant theo meeting và user
-    Optional<MeetingParticipant> findByMeetingIdAndUserId(String meetingId, UUID userId);
+        // Tìm participant theo meeting và user
+        Optional<MeetingParticipant> findByMeetingIdAndUserId(String meetingId, UUID userId);
 
-    boolean existsByMeetingIdAndUserId(String meetingId, UUID userId);
+        boolean existsByMeetingIdAndUserId(String meetingId, UUID userId);
 
-    List<MeetingParticipant> findByMeetingId(String meetingId);
+        List<MeetingParticipant> findByMeetingId(String meetingId);
 
-    // Tìm tất cả meetings mà user tham gia
-    @Query("SELECT mp FROM MeetingParticipant mp " +
-            "JOIN FETCH mp.meeting m " +
-            "WHERE mp.user.id = :userId " +
-            "AND m.status != 'CANCELLED' " +
-            "ORDER BY m.startTime DESC")
-    List<MeetingParticipant> findByUserIdWithMeeting(@Param("userId") UUID userId);
+        // Tìm tất cả meetings mà user tham gia
+        @Query("SELECT mp FROM MeetingParticipant mp " +
+                        "JOIN FETCH mp.meeting m " +
+                        "WHERE mp.user.id = :userId " +
+                        "AND m.status != 'CANCELLED' " +
+                        "ORDER BY m.startTime DESC")
+        List<MeetingParticipant> findByUserIdWithMeeting(@Param("userId") UUID userId);
 
-    void deleteByMeetingId(String meetingId);
+        void deleteByMeetingId(String meetingId);
 
-    @Transactional
-    void deleteByUserId(UUID userId);
+        @Transactional
+        void deleteByUserId(UUID userId);
 
-    @Query("""
-            SELECT mp
-            FROM MeetingParticipant mp
-            JOIN FETCH mp.user u
-            JOIN FETCH mp.meeting m
-            WHERE mp.reminderSent = false
-            AND m.status = 'SCHEDULED'
-            AND m.startTime BETWEEN :now AND :reminderTime
-            """)
-    List<MeetingParticipant> findParticipantsForReminderWithUserAndMeeting(
-            @Param("now") LocalDateTime now,
-            @Param("reminderTime") LocalDateTime reminderTime);
+        @Query("""
+                        SELECT mp
+                        FROM MeetingParticipant mp
+                        JOIN FETCH mp.user u
+                        JOIN FETCH mp.meeting m
+                        WHERE mp.reminderSent = false
+                        AND m.status = 'SCHEDULED'
+                        AND m.startTime BETWEEN :now AND :reminderTime
+                        """)
+        List<MeetingParticipant> findParticipantsForReminderWithUserAndMeeting(
+                        @Param("now") LocalDateTime now,
+                        @Param("reminderTime") LocalDateTime reminderTime);
+
+        @Query("SELECT mp FROM MeetingParticipant mp " +
+                        "JOIN FETCH mp.user u " +
+                        "WHERE mp.meeting.id = :meetingId " +
+                        "AND LOWER(u.email) = LOWER(:email)")
+        Optional<MeetingParticipant> findByMeetingIdAndUserEmail(
+                        @Param("meetingId") String meetingId,
+                        @Param("email") String email);
 
 }

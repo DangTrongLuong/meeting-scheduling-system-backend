@@ -11,10 +11,8 @@ import com.meeting.schedule_a_meeting.repositories.*;
 import com.meeting.schedule_a_meeting.repositories.meeting.*;
 import com.meeting.schedule_a_meeting.service.users.EmailService;
 
-import com.meeting.schedule_a_meeting.repositories.meeting.MeetingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.meeting.schedule_a_meeting.dto.request.users.meetting.DeviceBorrowRequest;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,7 +39,6 @@ public class MeetingService {
     private final RoomDeviceRepository roomDeviceRepository;
     private final MeetingMapper meetingMapper;
     private final EmailService emailService;
-
 
     private static final LocalTime MORNING_START = LocalTime.of(7, 0);
     private static final LocalTime MORNING_END = LocalTime.of(12, 0);
@@ -139,14 +136,14 @@ public class MeetingService {
 
         saved.getParticipants().forEach(mp -> {
             emailService.sendEmailMeetingUpdated(
-                    mp.getUser().getEmail(),                    // to
-                    saved.getTitle(),                           // meetingTitle
-                    saved.getDescription(),                     // description
-                    saved.getStartTime().toString(),            // start
-                    saved.getEndTime().toString(),              // end
-                    saved.getMeetingRoom().getName(),           // room
-                    saved.getCreator().getName(),               // updatedBy
-                    saved.getCreator().getEmail()               // updatedByEmail
+                    mp.getUser().getEmail(), // to
+                    saved.getTitle(), // meetingTitle
+                    saved.getDescription(), // description
+                    saved.getStartTime().toString(), // start
+                    saved.getEndTime().toString(), // end
+                    saved.getMeetingRoom().getName(), // room
+                    saved.getCreator().getName(), // updatedBy
+                    saved.getCreator().getEmail() // updatedByEmail
             );
         });
         emailService.sendEmailMeetingUpdated(
@@ -157,12 +154,12 @@ public class MeetingService {
                 saved.getEndTime().toString(),
                 saved.getMeetingRoom().getName(),
                 saved.getCreator().getName(),
-                saved.getCreator().getEmail()
-        );
+                saved.getCreator().getEmail());
         //
 
         return meetingMapper.toMeetingResponse(saved);
     }
+
     public List<RoomDeviceResponse> getRoomDevices(String roomId) {
         return roomDeviceRepository.findActiveDevicesByRoom(roomId).stream()
                 .map(rd -> RoomDeviceResponse.builder()
@@ -301,18 +298,21 @@ public class MeetingService {
     }
 
     private void addParticipantsByEmail(Meeting meeting, List<ParticipantRequest> requests, UUID creatorId) {
-        if (requests == null || requests.isEmpty()) return;
+        if (requests == null || requests.isEmpty())
+            return;
 
         for (ParticipantRequest req : requests) {
             String email = req.getEmail();
-            if (email == null || email.isBlank()) continue;
+            if (email == null || email.isBlank())
+                continue;
 
             email = email.trim();
 
             Users user = userRepository.findByEmailIgnoreCase(email)
                     .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND));
 
-            if (user.getId().equals(creatorId)) continue;
+            if (user.getId().equals(creatorId))
+                continue;
 
             if (participantRepository.existsByMeetingIdAndUserId(meeting.getId(), user.getId())) {
                 throw new AppException(ErrorStatus.PARTICIPANT_ALREADY_INVITED);
@@ -412,5 +412,25 @@ public class MeetingService {
                 : meetingRepository.findConflictingMeetingsExcludingCurrent(roomId, excludeId, start, end);
         if (!conflicts.isEmpty())
             throw new AppException(ErrorStatus.MEETING_ROOM_NOT_AVAILABLE);
+    }
+
+    @Transactional
+    public void updateParticipantStatusByEmailAndMeeting(String email, String meetingId, ParticipantStatus status) {
+        MeetingParticipant participant = participantRepository
+                .findByMeetingIdAndUserEmail(meetingId, email)
+                .orElseThrow(
+                        () -> new AppException(ErrorStatus.PARTICIPANT_NOT_FOUND, "Invitation not found or invalid"));
+
+        if (participant.getStatus() != ParticipantStatus.PENDING) {
+            throw new AppException(ErrorStatus.FORBIDDEN, "This invitation has already been responded to");
+        }
+
+        if (status != ParticipantStatus.ACCEPTED && status != ParticipantStatus.DECLINED) {
+            throw new AppException(ErrorStatus.INVALID_INPUT, "Status must be ACCEPTED or DECLINED");
+        }
+
+        participant.setStatus(status);
+        participant.setRespondedAt(LocalDateTime.now());
+        participantRepository.save(participant);
     }
 }

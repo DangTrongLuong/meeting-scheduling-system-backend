@@ -4,6 +4,7 @@ import com.meeting.schedule_a_meeting.dto.request.users.meetting.CreateMeetingRe
 import com.meeting.schedule_a_meeting.dto.request.users.meetting.UpdateMeetingRequest;
 import com.meeting.schedule_a_meeting.dto.response.users.meeting.*;
 import com.meeting.schedule_a_meeting.enums.ErrorStatus;
+import com.meeting.schedule_a_meeting.enums.ParticipantStatus;
 import com.meeting.schedule_a_meeting.exception.AppException;
 import com.meeting.schedule_a_meeting.service.admin.MeetingRoomService;
 import com.meeting.schedule_a_meeting.service.users.MeetingService;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.security.core.Authentication;
@@ -54,9 +56,8 @@ public class MeetingController {
 
     @GetMapping("/{meetingId}")
     public ResponseEntity<ApiResponse<MeetingResponse>> getMeetingById(
-            @PathVariable String meetingId) {
+            @PathVariable String meetingId, @RequestHeader("userId") UUID userId) {
 
-        UUID userId = getCurrentUserId();
         MeetingResponse response = meetingService.getMeetingById(meetingId, userId);
 
         return ResponseEntity.ok(
@@ -212,5 +213,33 @@ public class MeetingController {
             log.error("Invalid userId format: {}", userIdHeader);
             throw new AppException(ErrorStatus.UNAUTHORIZED, "Invalid userId format");
         }
+    }
+
+    @PatchMapping("/participants/status")
+    public ResponseEntity<ApiResponse> updateParticipantStatus(
+            @RequestBody Map<String, String> request) {
+
+        String email = request.get("email");
+        String meetingId = request.get("meetingId");
+        String statusStr = request.get("status");
+
+        if (email == null || meetingId == null || statusStr == null) {
+            throw new AppException(ErrorStatus.INVALID_INPUT, "Email, meetingId, and status are required");
+        }
+
+        ParticipantStatus status;
+        try {
+            status = ParticipantStatus.valueOf(statusStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new AppException(ErrorStatus.INVALID_INPUT, "Invalid status. Must be ACCEPTED or DECLINED");
+        }
+
+        meetingService.updateParticipantStatusByEmailAndMeeting(email, meetingId, status);
+
+        String message = status == ParticipantStatus.ACCEPTED
+                ? "You have successfully accepted the meeting invitation."
+                : "You have declined the meeting invitation.";
+
+        return ResponseEntity.ok(ApiResponse.success(message));
     }
 }

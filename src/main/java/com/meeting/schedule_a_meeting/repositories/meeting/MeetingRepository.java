@@ -17,6 +17,28 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
 
         List<Meeting> findByCreatorId(UUID creatorId);
 
+        @Query("""
+                        SELECT DISTINCT m FROM Meeting m
+                        LEFT JOIN FETCH m.meetingRoom
+                        LEFT JOIN FETCH m.creator
+                        LEFT JOIN FETCH m.participants p
+                        LEFT JOIN FETCH p.user
+                        WHERE (
+                            m.creator.id = :userId
+                            OR (
+                                EXISTS (
+                                    SELECT 1 FROM MeetingParticipant mp
+                                    WHERE mp.meeting = m
+                                    AND mp.user.id = :userId
+                                    AND mp.status = 'ACCEPTED'
+                                )
+                            )
+                        )
+                        AND m.status != 'CANCELLED'
+                        ORDER BY m.startTime DESC
+                        """)
+        List<Meeting> findMyMeetings(@Param("userId") UUID userId);
+
         // Kiểm tra xung đột thời gian cho cùng phòng
         @Query("SELECT m FROM Meeting m WHERE m.meetingRoom.id = :roomId " +
                         "AND m.status != 'CANCELLED' " +
@@ -36,14 +58,26 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
                         @Param("startTime") LocalDateTime startTime,
                         @Param("endTime") LocalDateTime endTime);
 
-        @Query("SELECT DISTINCT m FROM Meeting m " +
-                        "LEFT JOIN FETCH m.meetingRoom " +
-                        "LEFT JOIN FETCH m.creator " +
-                        "LEFT JOIN FETCH m.participants p " +
-                        "LEFT JOIN FETCH p.user " +
-                        "WHERE (m.creator.id = :userId OR p.user.id = :userId) " +
-                        "AND m.status != 'CANCELLED' " +
-                        "ORDER BY m.startTime DESC")
+        @Query("""
+                        SELECT DISTINCT m FROM Meeting m
+                        LEFT JOIN FETCH m.meetingRoom
+                        LEFT JOIN FETCH m.creator
+                        LEFT JOIN FETCH m.participants p
+                        LEFT JOIN FETCH p.user
+                        WHERE (
+                            m.creator.id = :userId
+                            OR (
+                                EXISTS (
+                                    SELECT 1 FROM MeetingParticipant mp
+                                    WHERE mp.meeting = m
+                                      AND mp.user.id = :userId
+                                      AND mp.status = 'ACCEPTED'
+                                )
+                            )
+                        )
+                        AND m.status != 'CANCELLED'
+                        ORDER BY m.startTime DESC
+                        """)
         List<Meeting> findMeetingsByUser(@Param("userId") UUID userId);
 
         @Query("SELECT m FROM Meeting m WHERE m.meetingRoom.id = :roomId " +
