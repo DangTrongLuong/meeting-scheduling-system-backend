@@ -6,6 +6,7 @@ import com.meeting.schedule_a_meeting.dto.response.users.meeting.*;
 import com.meeting.schedule_a_meeting.enums.ErrorStatus;
 import com.meeting.schedule_a_meeting.enums.ParticipantStatus;
 import com.meeting.schedule_a_meeting.exception.AppException;
+import com.meeting.schedule_a_meeting.mapper.users.MeetingMapper;
 import com.meeting.schedule_a_meeting.service.admin.MeetingRoomService;
 import com.meeting.schedule_a_meeting.service.users.MeetingService;
 
@@ -13,6 +14,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +39,7 @@ public class MeetingController {
 
     private final MeetingService meetingService;
     private final MeetingRoomService meetingRoomService;
+    private final MeetingMapper meetingMapper;
 
     @PostMapping("/createMeeting")
     public ResponseEntity<ApiResponse<MeetingResponse>> createMeeting(
@@ -53,6 +56,19 @@ public class MeetingController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created("Meeting created successfully", response));
     }
+
+
+    @GetMapping("/getAllMeetings")
+    public ResponseEntity<ApiResponse<Page<MeetingResponse>>> getAllMeetings(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "startTime") String sortBy,
+            @RequestParam(defaultValue = "desc") String direction) {
+
+        Page<MeetingResponse> response = meetingService.getAllMeetings(page, size, sortBy, direction);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
 
     @GetMapping("/{meetingId}")
     public ResponseEntity<ApiResponse<MeetingResponse>> getMeetingById(
@@ -242,4 +258,25 @@ public class MeetingController {
 
         return ResponseEntity.ok(ApiResponse.success(message));
     }
+
+
+    @GetMapping("/pending")
+    public ResponseEntity<ApiResponse<List<MeetingResponse>>> getPendingMeetings() {
+        List<MeetingResponse> response = meetingService.getPendingMeetings()
+                .stream().map(meetingMapper::toMeetingResponse).toList();
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PatchMapping("/{id}/approve")
+    public ResponseEntity<ApiResponse<MeetingResponse>> approveMeeting(@PathVariable String id) {
+        MeetingResponse response = meetingMapper.toMeetingResponse(meetingService.approveMeeting(id));
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PatchMapping("/{id}/reject")
+    public ResponseEntity<ApiResponse<MeetingResponse>> rejectMeeting(@PathVariable String id) {
+        MeetingResponse response = meetingMapper.toMeetingResponse(meetingService.rejectMeeting(id));
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
 }
