@@ -112,4 +112,5 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
         List<Meeting> findMeetingsForCreatorReminder(@Param("now") LocalDateTime now,
                         @Param("reminderTime") LocalDateTime reminderTime);
 
+    List<Meeting> findByStatus(MeetingStatus status);
 }

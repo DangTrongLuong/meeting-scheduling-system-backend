@@ -14,6 +14,10 @@ import com.meeting.schedule_a_meeting.service.users.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,7 +67,7 @@ public class MeetingService {
                 .endTime(request.getEndTime())
                 .meetingRoom(room)
                 .creator(creator)
-                .status(MeetingStatus.SCHEDULED)
+                .status(MeetingStatus.PENDING_APPROVAL)
                 .createdBy(creator.getName())
                 .build();
 
@@ -433,4 +437,32 @@ public class MeetingService {
         participant.setRespondedAt(LocalDateTime.now());
         participantRepository.save(participant);
     }
+
+
+    public List<Meeting> getPendingMeetings() {
+        return meetingRepository.findByStatus(MeetingStatus.PENDING_APPROVAL);
+    }
+
+    public Meeting approveMeeting(String id) {
+        Meeting meeting = meetingRepository.findById(id).orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+        meeting.setStatus(MeetingStatus.SCHEDULED);
+        return meetingRepository.save(meeting);
+    }
+
+    public Meeting rejectMeeting(String id) {
+        Meeting meeting = meetingRepository.findById(id).orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+        meeting.setStatus(MeetingStatus.CANCELLED);
+        return meetingRepository.save(meeting);
+    }
+
+
+    public Page<MeetingResponse> getAllMeetings(int page, int size, String sortBy, String direction) {
+        Pageable pageable = PageRequest.of(page, size,
+                direction.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
+
+        Page<Meeting> meetings = meetingRepository.findAll(pageable);
+        return meetings.map(meetingMapper::toMeetingResponse);
+    }
+
+
 }
