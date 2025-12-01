@@ -24,3 +24,4 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
         registry.setUserDestinationPrefix("/user");
     }
 }
+

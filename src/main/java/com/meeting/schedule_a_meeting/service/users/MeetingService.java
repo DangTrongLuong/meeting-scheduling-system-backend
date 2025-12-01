@@ -325,6 +325,7 @@ public class MeetingService {
             MeetingParticipant mp = MeetingParticipant.builder()
                     .meeting(meeting)
                     .user(user)
+                    .guestEmail(email)
                     .role(req.getRole() != null ? req.getRole() : ParticipantRole.REQUIRED)
                     .status(ParticipantStatus.PENDING)
                     .invitedAt(LocalDateTime.now())
