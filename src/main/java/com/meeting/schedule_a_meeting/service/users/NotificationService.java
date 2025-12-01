@@ -15,6 +15,6 @@ public class NotificationService {
     }
 
     public void sendReminderToUser(String email, MeetingReminderDTO dto) {
-        messagingTemplate.convertAndSendToUser(email, "/queue/reminders", dto);
+//        messagingTemplate.convertAndSendToUser(email, "/queue/reminders", dto);
     }
 }
