@@ -2,7 +2,10 @@ package com.meeting.schedule_a_meeting.service.users;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 
@@ -80,6 +83,59 @@ public class UserService {
         emailService.sendVerificationEmail(user.getEmail(), verifyLink);
 
         return user;
+    }
+
+    @Transactional
+    public Map<String, Object> createBulkUsers(List<UserCreationRequest> requests) {
+        List<String> createdEmails = new ArrayList<>();
+        List<String> failedEmails = new ArrayList<>();
+        int successCount = 0;
+
+        for (UserCreationRequest request : requests) {
+            try {
+                // Kiểm tra email đã tồn tại
+                if (userRepository.existsByEmail(request.getEmail())) {
+                    failedEmails.add(request.getEmail() + " (already exists)");
+                    continue;
+                }
+
+                Users user = userMapper.toUser(request);
+                PasswordEncoder encoder = new BCryptPasswordEncoder(10);
+                user.setPassword(encoder.encode(request.getPassword()));
+                user.setAuthProvider(AuthProvider.LOCAL);
+                user.setRole(Role.USER);
+                user.setCreatedAt(LocalDate.now());
+                user.setAvatar_url(DEFAULT_AVATAR_URL);
+                user.setVerificationToken(UUID.randomUUID().toString());
+                user.setActive(false);
+                user.setFirstLogin(true);
+
+                userRepository.save(user);
+                createdEmails.add(request.getEmail());
+
+                // // Gửi email xác nhận
+                // String verifyLink = "http://localhost:5173/verify?email=" + user.getEmail() +
+                // "&token="
+                // + user.getVerificationToken();
+                // emailService.sendVerificationEmail(user.getEmail(), verifyLink);
+
+                successCount++;
+            } catch (Exception e) {
+                failedEmails.add(request.getEmail() + " (error)");
+                log.error("Failed to create user: {}", request.getEmail(), e);
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", !createdEmails.isEmpty());
+        result.put("createdCount", successCount);
+        result.put("createdEmails", createdEmails);
+        result.put("failedEmails", failedEmails);
+        result.put("message", successCount > 0
+                ? String.format("Successfully created %d user(s)", successCount)
+                : "No users were created");
+
+        return result;
     }
 
     public boolean checkEmailExists(String email) {
