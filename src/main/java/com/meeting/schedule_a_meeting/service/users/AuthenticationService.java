@@ -29,9 +29,9 @@ public class AuthenticationService {
         Users user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_EXISTED));
 
-        if (!user.isActive()) {
-            throw new AppException(ErrorStatus.USER_NOT_ACTIVATED);
-        }
+        // if (!user.isActive()) {
+        // throw new AppException(ErrorStatus.USER_NOT_ACTIVATED);
+        // }
 
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {

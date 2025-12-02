@@ -12,6 +12,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -39,6 +40,7 @@ public class UserController {
     private final UserService userService;
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @PostMapping("/register")
     public ResponseEntity<?> createUser(@RequestBody UserCreationRequest request) {
@@ -67,6 +69,26 @@ public class UserController {
             errorResponse.put("error", "Unexpected error occurred");
             errorResponse.put("message", "Unexpected error occurred");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    @PostMapping("/register-bulk")
+    public ResponseEntity<?> createBulkUsers(@RequestBody List<UserCreationRequest> requests) {
+        try {
+            if (requests.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "No users provided"));
+            }
+
+            Map<String, Object> result = userService.createBulkUsers(requests);
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Bulk registration failed", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "success", false,
+                    "message", "Server error during bulk creation"));
         }
     }
 
@@ -118,6 +140,62 @@ public class UserController {
             errorResponse.put("message", "Internal server error");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
+    }
+
+    @PostMapping("/check-first-login")
+    public ResponseEntity<Map<String, Object>> checkFirstLogin(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        Map<String, Object> response = new HashMap<>();
+
+        Users user = userRepository.findByEmail(email)
+                .orElse(null);
+
+        if (user == null) {
+            response.put("firstLogin", false);
+            return ResponseEntity.ok(response);
+        }
+
+        response.put("firstLogin", user.isFirstLogin());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/update-password-first-login")
+    public ResponseEntity<Map<String, Object>> updatePasswordFirstLogin(
+            @RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String newPassword = body.get("newPassword");
+
+        Map<String, Object> response = new HashMap<>();
+
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!user.isFirstLogin()) {
+            response.put("success", false);
+            response.put("message", "This is not your first login");
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        // Validate password
+        if (newPassword == null || newPassword.length() < 8 ||
+                !newPassword.matches(".*[a-z].*") ||
+                !newPassword.matches(".*[A-Z].*") ||
+                !newPassword.matches(".*\\d.*") ||
+                !newPassword.matches(".*[@$!%*?&].*")) {
+            response.put("success", false);
+            response.put("message",
+                    "Password must be 8+ characters with uppercase, lowercase, number and special character");
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setFirstLogin(false);
+        user.setActive(true);
+        userRepository.save(user);
+
+        response.put("success", true);
+        response.put("message", "Password updated successfully!");
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/verify")

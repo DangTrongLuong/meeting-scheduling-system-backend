@@ -57,7 +57,7 @@ public class Users {
     @Column(name = "age")
     int age;
 
-    @Column(name= "phone_numbers")
+    @Column(name = "phone_numbers")
     String phone_numbers;
 
     @Column(name = "address", length = 255)
@@ -109,4 +109,7 @@ public class Users {
 
     @Column(name = "two_factor_enabled", nullable = false)
     private boolean twoFactorEnabled = false;
+
+    @Column(name = "first_login", nullable = false)
+    private boolean firstLogin = true;
 }
