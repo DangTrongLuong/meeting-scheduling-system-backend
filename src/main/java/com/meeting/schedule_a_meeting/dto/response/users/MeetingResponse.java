@@ -19,5 +19,7 @@ public class MeetingResponse {
     private String createdBy;
     private String status;
     private List<String> invitedEmails;
+    private String description;
+
 
 }
