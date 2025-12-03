@@ -439,23 +439,51 @@ public class MeetingService {
         participantRepository.save(participant);
     }
 
-
     public List<Meeting> getPendingMeetings() {
         return meetingRepository.findByStatus(MeetingStatus.PENDING_APPROVAL);
     }
 
+    @Transactional
     public Meeting approveMeeting(String id) {
-        Meeting meeting = meetingRepository.findById(id).orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+        Meeting meeting = meetingRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+
         meeting.setStatus(MeetingStatus.SCHEDULED);
-        return meetingRepository.save(meeting);
+        Meeting savedMeeting = meetingRepository.save(meeting);
+
+        // Lấy tất cả cuộc họp PENDING_APPROVAL trong cùng phòng, cùng thời gian
+        List<Meeting> conflictingPendingMeetings = meetingRepository
+                .findConflictingPendingMeetings(
+                        meeting.getMeetingRoom().getId(),
+                        meeting.getStartTime(),
+                        meeting.getEndTime(),
+                        id);
+
+        // Hủy tất cả các cuộc họp khác
+        conflictingPendingMeetings.forEach(conflictMeeting -> {
+            conflictMeeting.setStatus(MeetingStatus.CANCELLED);
+            conflictMeeting.setCancelledAt(LocalDateTime.now());
+            conflictMeeting.setCancellationReason("Cancelled due to conflicting approved meeting");
+            meetingRepository.save(conflictMeeting);
+
+            // Gửi email thông báo hủy cho creator và participants
+            emailService.sendCancelMeetingEmail(conflictMeeting.getCreator().getEmail(), conflictMeeting);
+            for (MeetingParticipant participant : conflictMeeting.getParticipants()) {
+                emailService.sendCancelMeetingEmail(participant.getUser().getEmail(), conflictMeeting);
+            }
+        });
+
+        return savedMeeting;
     }
 
+    @Transactional
     public Meeting rejectMeeting(String id) {
-        Meeting meeting = meetingRepository.findById(id).orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+        Meeting meeting = meetingRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+
         meeting.setStatus(MeetingStatus.CANCELLED);
         return meetingRepository.save(meeting);
     }
-
 
     public Page<MeetingResponse> getAllMeetings(int page, int size, String sortBy, String direction) {
         Pageable pageable = PageRequest.of(page, size,
@@ -464,6 +492,5 @@ public class MeetingService {
         Page<Meeting> meetings = meetingRepository.findAll(pageable);
         return meetings.map(meetingMapper::toMeetingResponse);
     }
-
 
 }
