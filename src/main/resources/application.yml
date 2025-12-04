@@ -22,7 +22,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/meeting_scheduling_system?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
-    password: 230605
+    password: Luong23@
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       connection-timeout: 30000
@@ -44,25 +44,25 @@ spring:
         dialect: org.hibernate.dialect.MySQL8Dialect
 
     # Google OAuth2
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: 732859314325-c0vvm2ors0mflkb8be4igt0navih871u.apps.googleusercontent.com
-            client-secret: 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
-            scope: openid,profile,email
-            redirect-uri: http://localhost:8080/login/oauth2/code/google
-            authorization-grant-type: authorization_code
-            client-authentication-method: client_secret_basic
-
-        provider:
-          google:
-            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth?access_type=offline&prompt=consent
-            token-uri: https://oauth2.googleapis.com/token
-            jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
-            user-name-attribute: sub
-            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+#  security:
+#    oauth2:
+#      client:
+#        registration:
+#          google:
+#            client-id: 732859314325-c0vvm2ors0mflkb8be4igt0navih871u.apps.googleusercontent.com
+#            client-secret: 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
+#            scope: openid,profile,email
+#            redirect-uri: http://localhost:8080/login/oauth2/code/google
+#            authorization-grant-type: authorization_code
+#            client-authentication-method: client_secret_basic
+#
+#        provider:
+#          google:
+#            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth?access_type=offline&prompt=consent
+#            token-uri: https://oauth2.googleapis.com/token
+#            jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+#            user-name-attribute: sub
+#            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
 
   mail:
     host: smtp.gmail.com
@@ -121,3 +121,11 @@ jwt:
   #  secret: ${JWT_SECRET:A_VERY_LONG_AND_SECURE_RANDOM_STRING_FOR_HS512_ENCODING_OF_AT_LEAST_64_CHARACTERS_HERE}
   secret: OTafhRsXYMF78HOLlDRzN6xouQHaremZfge6RG1gdrXz-oqjwVc0D93mGHJaZ_rmmJuW4t6Zjs9c6CAbFJmsKw
   expiration: 86400000
+
+
+google:
+  calendar:
+    client-id: 732859314325-c0vvm2ors0mflkb8be4igt0navih871u.apps.googleusercontent.com
+    client-secret: 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
+    redirect-uri: http://localhost:8080/api/google-calendar/callback
+
