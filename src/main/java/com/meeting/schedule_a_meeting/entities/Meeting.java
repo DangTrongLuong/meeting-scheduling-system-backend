@@ -77,6 +77,12 @@ public class Meeting {
     @Column(name = "cancellation_reason", length = 500)
     private String cancellationReason;
 
+    @Column(name = "google_event_id", length = 255)
+    private String googleEventId;
+
+    @Column(name = "last_synced_at")
+    private LocalDateTime lastSyncedAt;
+
     @Column(name = "created_by", nullable = false)
     private String createdBy;
 
