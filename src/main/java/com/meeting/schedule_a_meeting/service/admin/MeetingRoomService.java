@@ -1,3 +1,4 @@
+
 package com.meeting.schedule_a_meeting.service.admin;
 
 import com.meeting.schedule_a_meeting.dto.request.admin.MeetingRoomRequest;
@@ -10,12 +11,14 @@ import com.meeting.schedule_a_meeting.repositories.MeetingRoomRepository;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.data.domain.Page;             // [ADD]
+import org.springframework.data.domain.PageRequest;    // [ADD]
+import org.springframework.data.domain.Pageable;        // [ADD]
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -79,5 +82,30 @@ public class MeetingRoomService {
                 .filter(r -> r.getName().toLowerCase().contains(name.toLowerCase()))
                 .map(mapper::toResponse)
                 .toList();
+    }
+
+    // -------------------------------------------------------
+    // [ADD] Phân trang + sort + optional search (server-side)
+    // -------------------------------------------------------
+    public Page<MeetingRoomResponse> getPaged(int page, int size, String sortBy, String direction, String search) {
+        // Spring Pageable dùng pageIndex 0-based
+        int pageIndex = Math.max(page - 1, 0);
+        int pageSize = Math.max(size, 1);
+
+        Sort sort = "desc".equalsIgnoreCase(direction)
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+
+        Pageable pageable = PageRequest.of(pageIndex, pageSize, sort);
+
+        Page<MeetingRoom> entityPage;
+        if (search != null && !search.trim().isEmpty()) {
+            entityPage = repository.findByNameContainingIgnoreCase(search.trim(), pageable);
+        } else {
+            entityPage = repository.findAll(pageable);
+        }
+
+        // map entity -> dto
+        return entityPage.map(mapper::toResponse);
     }
 }
