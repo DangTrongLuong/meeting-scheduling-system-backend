@@ -1,12 +1,15 @@
+
 package com.meeting.schedule_a_meeting.controllers.admin;
 
 import com.meeting.schedule_a_meeting.dto.request.admin.MeetingRoomRequest;
+import com.meeting.schedule_a_meeting.dto.response.PagedResponse;                // [ADD]
 import com.meeting.schedule_a_meeting.dto.response.admin.MeetingRoomResponse;
 import com.meeting.schedule_a_meeting.service.admin.MeetingRoomService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.data.domain.Page;                                       // [ADD]
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -56,4 +59,28 @@ public class MeetingRoomController {
         return ResponseEntity.noContent().build();
     }
 
+    // ------------------------------------------------------------
+    // [ADD] Endpoint phân trang (cùng path, dùng params page & size)
+    //      Ví dụ: GET /api/admin/rooms?page=1&size=10&sortBy=name&direction=asc&search=abc
+    // ------------------------------------------------------------
+    @GetMapping(params = {"page", "size"})
+    public ResponseEntity<PagedResponse<MeetingRoomResponse>> getPaged(
+            @RequestParam int page,                          // UI: 1-based
+            @RequestParam int size,
+            @RequestParam(defaultValue = "name") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction,
+            @RequestParam(required = false) String search
+    ) {
+        Page<MeetingRoomResponse> resPage =
+                service.getPaged(page, size, sortBy, direction, search);
+
+        PagedResponse<MeetingRoomResponse> body = new PagedResponse<>(
+                resPage.getContent(),
+                resPage.getNumber() + 1,      // trả về 1-based cho FE
+                resPage.getSize(),
+                resPage.getTotalElements(),
+                resPage.getTotalPages()
+        );
+        return ResponseEntity.ok(body);
+    }
 }

@@ -1,12 +1,12 @@
+
 package com.meeting.schedule_a_meeting.repositories;
 
-import com.meeting.schedule_a_meeting.entities.Meeting;
 import com.meeting.schedule_a_meeting.entities.MeetingRoom;
+import org.springframework.data.domain.Page;            // [ADD]
+import org.springframework.data.domain.Pageable;     // [ADD]
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -17,4 +17,9 @@ public interface MeetingRoomRepository extends JpaRepository<MeetingRoom, String
 
     boolean existsByName(String name);
 
+    // [ADD] Tìm kiếm theo tên có phân trang
+    Page<MeetingRoom> findByNameContainingIgnoreCase(String name, Pageable pageable);
+
+    // [ADD OPTIONAL] Nếu cần tìm theo location/capacity thì bổ sung tương tự:
+    // Page<MeetingRoom> findByLocationContainingIgnoreCase(String location, Pageable pageable);
 }
