@@ -43,6 +43,7 @@ public class MeetingService {
     private final RoomDeviceRepository roomDeviceRepository;
     private final MeetingMapper meetingMapper;
     private final EmailService emailService;
+    private final GoogleCalendarService googleCalendarService;
 
     private static final LocalTime MORNING_START = LocalTime.of(7, 0);
     private static final LocalTime MORNING_END = LocalTime.of(12, 0);
@@ -72,6 +73,14 @@ public class MeetingService {
                 .build();
 
         meetingRepository.saveAndFlush(meeting);
+
+        if (googleCalendarService.isConnected(creatorId)) {
+            try {
+                googleCalendarService.syncMeetingToGoogle(meeting, creatorId);
+            } catch (Exception e) {
+                log.warn("Failed to auto-sync meeting to Google Calendar", e);
+            }
+        }
 
         assignDefaultRoomDevices(meeting);
         addParticipantsByEmail(meeting, request.getParticipants(), creatorId);
@@ -137,6 +146,14 @@ public class MeetingService {
         }
 
         Meeting saved = meetingRepository.save(meeting);
+
+        if (googleCalendarService.isConnected(userId)) {
+            try {
+                googleCalendarService.syncMeetingToGoogle(saved, userId);
+            } catch (Exception e) {
+                log.warn("Failed to auto-sync meeting update to Google Calendar", e);
+            }
+        }
 
         saved.getParticipants().forEach(mp -> {
             emailService.sendEmailMeetingUpdated(
@@ -240,6 +257,14 @@ public class MeetingService {
         meeting.setCancelledAt(LocalDateTime.now());
         meeting.setCancellationReason(reason);
         meetingRepository.save(meeting);
+
+        if (googleCalendarService.isConnected(userId)) {
+            try {
+                googleCalendarService.deleteGoogleEvent(meetingId, userId);
+            } catch (Exception e) {
+                log.warn("Failed to delete meeting from Google Calendar", e);
+            }
+        }
 
         returnBorrowedDevices(meeting);
         // ✅ Force load participants
