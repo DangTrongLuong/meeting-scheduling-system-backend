@@ -2,10 +2,13 @@ package com.meeting.schedule_a_meeting.controllers.admin;
 
 import com.meeting.schedule_a_meeting.dto.request.admin.DeviceCreateRequest;
 import com.meeting.schedule_a_meeting.dto.request.admin.DeviceUpdateRequest;
+import com.meeting.schedule_a_meeting.dto.response.PagedResponse;
 import com.meeting.schedule_a_meeting.dto.response.admin.DeviceResponse;
+import com.meeting.schedule_a_meeting.dto.response.admin.MeetingRoomResponse;
 import com.meeting.schedule_a_meeting.enums.DeviceStatus;
 import com.meeting.schedule_a_meeting.service.admin.DeviceService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +16,9 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
+
+import com.meeting.schedule_a_meeting.dto.response.PagedResponse;
+
 
 @RestController
 @RequestMapping("/api/admin/devices")
@@ -54,5 +60,26 @@ public class DeviceController {
     public ResponseEntity<Void> delete(@PathVariable String id) {
         service.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping(params = {"page", "size"})
+    public ResponseEntity<PagedResponse<DeviceResponse>> getPaged(
+            @RequestParam int page,                          // UI: 1-based
+            @RequestParam int size,
+            @RequestParam(defaultValue = "name") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction,
+            @RequestParam(required = false) String search
+    ) {
+        Page<DeviceResponse> resPage =
+                service.getPaged(page, size, sortBy, direction, search);
+
+        PagedResponse<DeviceResponse> body = new PagedResponse<>(
+                resPage.getContent(),
+                resPage.getNumber() + 1,      // trả về 1-based cho FE
+                resPage.getSize(),
+                resPage.getTotalElements(),
+                resPage.getTotalPages()
+        );
+        return ResponseEntity.ok(body);
     }
 }

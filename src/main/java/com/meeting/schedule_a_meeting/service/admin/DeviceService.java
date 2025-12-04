@@ -3,13 +3,18 @@ package com.meeting.schedule_a_meeting.service.admin;
 import com.meeting.schedule_a_meeting.dto.request.admin.DeviceCreateRequest;
 import com.meeting.schedule_a_meeting.dto.request.admin.DeviceUpdateRequest;
 import com.meeting.schedule_a_meeting.dto.response.admin.DeviceResponse;
+import com.meeting.schedule_a_meeting.dto.response.admin.MeetingRoomResponse;
 import com.meeting.schedule_a_meeting.entities.Device;
+import com.meeting.schedule_a_meeting.entities.MeetingRoom;
 import com.meeting.schedule_a_meeting.enums.DeviceStatus;
 import com.meeting.schedule_a_meeting.enums.ErrorStatus;
 import com.meeting.schedule_a_meeting.exception.AppException;
 import com.meeting.schedule_a_meeting.mapper.admin.DeviceMapper;
 import com.meeting.schedule_a_meeting.repositories.DeviceRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -165,5 +170,27 @@ public class DeviceService {
 
             System.err.println("Failed to delete old image: " + imagePath + " | " + e.getMessage());
         }
+    }
+
+    public Page<DeviceResponse> getPaged(int page, int size, String sortBy, String direction, String search) {
+        // Spring Pageable dùng pageIndex 0-based
+        int pageIndex = Math.max(page - 1, 0);
+        int pageSize = Math.max(size, 1);
+
+        Sort sort = "desc".equalsIgnoreCase(direction)
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+
+        Pageable pageable = PageRequest.of(pageIndex, pageSize, sort);
+
+        Page<Device> entityPage;
+        if (search != null && !search.trim().isEmpty()) {
+            entityPage = repository.findByNameContainingIgnoreCase(search.trim(), pageable);
+        } else {
+            entityPage = repository.findAll(pageable);
+        }
+
+        // map entity -> dto
+        return entityPage.map(mapper::toResponse);
     }
 }
