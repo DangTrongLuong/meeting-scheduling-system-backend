@@ -60,6 +60,8 @@ public enum ErrorStatus {
     INVALID_2FA_CODE(401, "Invalid 2FA code"),
     TWO_FACTOR_NOT_ENABLED(400, "2FA is not enabled for this account"),
 
+    INTERNAL_SERVER_ERROR(500,"Internal Server Errol"),
+
     IMAGE_UPLOAD_FAILED(500, "Failed to upload image");
 
     private final int status;

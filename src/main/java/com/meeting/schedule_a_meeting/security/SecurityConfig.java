@@ -34,6 +34,7 @@ public class SecurityConfig {
 
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
+
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
                 .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class)
@@ -46,19 +47,20 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/rooms/**").permitAll()
                         .requestMatchers("/api/admin/devices/**").permitAll()
                         // .requestMatchers("/api/meetings").authenticated()
+                        .requestMatchers("/api/google-calendar/**").permitAll()
                         .requestMatchers("/api/meetings/**").permitAll()
 
                         .anyRequest().authenticated())
-                .oauth2Login(oauth2 -> oauth2
-                        .loginPage("/api/auth/login/google")
-                        .authorizationEndpoint(authorization -> authorization
-                                .baseUri("/oauth2/authorization"))
-                        .redirectionEndpoint(redirection -> redirection
-                                .baseUri("/login/oauth2/code/*"))
-                        .defaultSuccessUrl("/api/auth/loginSuccess", true)
-                        // .successHandler(customSuccessHandler)
-                        .failureUrl("/api/auth/login/google?error=true"))
-                .oauth2Client(Customizer.withDefaults())
+//                .oauth2Login(oauth2 -> oauth2
+//                        .loginPage("/api/auth/login/google")
+//                        .authorizationEndpoint(authorization -> authorization
+//                                .baseUri("/oauth2/authorization"))
+//                        .redirectionEndpoint(redirection -> redirection
+//                                .baseUri("/login/oauth2/code/*"))
+//                        .defaultSuccessUrl("/api/auth/loginSuccess", true)
+//                        // .successHandler(customSuccessHandler)
+//                        .failureUrl("/api/auth/login/google?error=true"))
+//                .oauth2Client(Customizer.withDefaults())
 
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")
