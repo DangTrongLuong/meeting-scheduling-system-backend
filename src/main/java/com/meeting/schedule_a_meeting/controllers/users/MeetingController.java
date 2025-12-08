@@ -21,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -125,6 +126,36 @@ public class MeetingController {
                         .data(response)
                         .build());
     }
+
+    @GetMapping("/rooms/{roomId}/availability")
+    public ResponseEntity<Map<String, Object>> checkAvailability(
+            @PathVariable String roomId,
+            @RequestParam String date,
+            @RequestParam String start,
+            @RequestParam String end
+    ) {
+        try {
+            boolean available = meetingService.isRoomAvailable(roomId, date, start, end);
+
+            return ResponseEntity.ok(
+                    Map.of(
+                            "available", available,
+                            "roomId", roomId
+                    )
+            );
+        } catch (DateTimeParseException ex) {
+            // Bad request nếu thời gian gửi lên sai format
+            return ResponseEntity.badRequest().body(
+                    Map.of("error", "Invalid date/time format. Expected date=yyyy-MM-dd, start/end=HH:mm")
+            );
+        } catch (Exception ex) {
+            // log and return 500 for unexpected errors
+            log.error("checkAvailability error", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Internal server error"));
+        }
+    }
+
 
     @PutMapping("/{meetingId}")
     public ResponseEntity<ApiResponse<MeetingResponse>> updateMeeting(
