@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -518,4 +519,15 @@ public class MeetingService {
         return meetings.map(meetingMapper::toMeetingResponse);
     }
 
+    public boolean isRoomAvailable(String roomId, String date, String start, String end) {
+        DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
+
+        String startIso = date + "T" + start; // ví dụ: "2025-12-09T07:36"
+        String endIso = date + "T" + end;
+
+        LocalDateTime startDateTime = LocalDateTime.parse(startIso, f);
+        LocalDateTime endDateTime = LocalDateTime.parse(endIso, f);
+
+        return !meetingRepository.existsConflict(roomId, startDateTime, endDateTime);
+    }
 }

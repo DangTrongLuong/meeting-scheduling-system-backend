@@ -123,4 +123,20 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
             @Param("reminderTime") LocalDateTime reminderTime);
 
     List<Meeting> findByStatus(MeetingStatus status);
+
+    @Query("""
+    SELECT COUNT(m) > 0
+    FROM Meeting m
+    WHERE m.meetingRoom.id = :roomId
+    AND (
+        m.startTime < :endTime
+        AND m.endTime   > :startTime
+    )
+""")
+    boolean existsConflict(
+            @Param("roomId") String roomId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
 }
