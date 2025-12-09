@@ -72,27 +72,72 @@ public class UserController {
         }
     }
 
+
+    // UserController.java
+
+    // UserController.java - trong @PostMapping("/register-bulk")
     @PostMapping("/register-bulk")
     public ResponseEntity<?> createBulkUsers(@RequestBody List<UserCreationRequest> requests) {
         try {
-            if (requests.isEmpty()) {
+            if (requests == null || requests.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
-                        "message", "No users provided"));
+                        "message", "No users provided"
+                ));
             }
 
-            Map<String, Object> result = userService.createBulkUsers(requests);
+            // Chuẩn hoá emails từ payload
+            List<String> emails = requests.stream()
+                    .map(r -> r.getEmail() == null ? "" : r.getEmail().trim().toLowerCase())
+                    .toList();
 
+            // Trùng trong payload
+            Map<String, Long> counts = emails.stream()
+                    .filter(e -> !e.isEmpty())
+                    .collect(java.util.stream.Collectors.groupingBy(e -> e, java.util.stream.Collectors.counting()));
+            List<String> duplicateInPayload = counts.entrySet().stream()
+                    .filter(e -> e.getValue() > 1)
+                    .map(Map.Entry::getKey)
+                    .toList();
+
+            // Trùng trong DB
+            List<String> duplicateInDb = emails.stream()
+                    .filter(e -> !e.isEmpty() && userService.checkMail(e))
+                    .toList();
+
+            if (!duplicateInPayload.isEmpty() || !duplicateInDb.isEmpty()) {
+                // Ghép message chi tiết
+                StringBuilder sb = new StringBuilder("Duplicate emails detected. No accounts were created.");
+                if (!duplicateInPayload.isEmpty()) {
+                    sb.append(" Duplicate in form: ").append(String.join(", ", duplicateInPayload)).append(".");
+                }
+                if (!duplicateInDb.isEmpty()) {
+                    sb.append(" Already exists in system: ").append(String.join(", ", duplicateInDb)).append(".");
+                }
+
+                Map<String, Object> resp = new HashMap<>();
+                resp.put("success", false);
+                resp.put("message", sb.toString());
+                resp.put("duplicateInPayload", duplicateInPayload);
+                resp.put("duplicateInDb", duplicateInDb);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(resp);
+            }
+
+            // Không có trùng -> tạo người dùng
+            Map<String, Object> result = userService.createBulkUsers(requests);
             return ResponseEntity.ok(result);
+
         } catch (Exception e) {
             log.error("Bulk registration failed", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "success", false,
-                    "message", "Server error during bulk creation"));
+                    "message", "Server error during bulk creation"
+            ));
         }
     }
 
-    @GetMapping("/get-users")
+
+        @GetMapping("/get-users")
     List<Users> getUsers() {
         return userService.getUsers();
     }

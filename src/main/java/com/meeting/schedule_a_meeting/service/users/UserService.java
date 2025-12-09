@@ -92,6 +92,16 @@ public class UserService {
         int successCount = 0;
 
         for (UserCreationRequest request : requests) {
+
+            String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase();
+            if (email.isEmpty()) {
+                throw new AppException(ErrorStatus.INVALID_TOKEN, "Email is empty in payload");
+            }
+            if (userRepository.existsByEmail(email)) {
+                // Abort toàn bộ
+                throw new AppException(ErrorStatus.EMAIL_EXISTED, "Duplicate email found in DB: " + email);
+            }
+
             try {
                 // Kiểm tra email đã tồn tại
                 if (userRepository.existsByEmail(request.getEmail())) {
