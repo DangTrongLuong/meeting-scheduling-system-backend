@@ -1,8 +1,12 @@
 package com.meeting.schedule_a_meeting.service.users;
 
 import com.google.api.client.googleapis.auth.oauth2.*;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpRequestInitializer;
+import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.calendar.Calendar;
 import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.EventAttendee;
@@ -47,6 +51,8 @@ public class GoogleCalendarService {
     private final GoogleAuthorizationCodeFlow googleAuthFlow;
     private final NetHttpTransport httpTransport;
     private final JsonFactory jsonFactory;
+    private static final String TIME_ZONE = "Asia/Ho_Chi_Minh"; // GMT+7
+    private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
 
     /**
      * Tạo URL để user authorize với Google
@@ -213,33 +219,17 @@ public class GoogleCalendarService {
      * Xóa event từ Google Calendar
      */
     @Transactional
-    public void deleteGoogleEvent(String meetingId, UUID userId) {
-        log.info("Deleting Google Calendar event for meeting: {}", meetingId);
-
-        Meeting meeting = meetingRepository.findById(meetingId)
-                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
-
-        if (meeting.getGoogleEventId() == null) {
-            log.info("Meeting {} has no Google event ID, skipping deletion", meetingId);
+    public void deleteGoogleEvent(String eventId, String accessToken) {
+        if (eventId == null || accessToken == null || accessToken.isEmpty()) {
+            log.warn("Missing eventId or accessToken, skipping Google Calendar deletion");
             return;
         }
-
-        GoogleCalendarConnection connection = getActiveConnection(userId);
-        Calendar calendarService = getCalendarService(connection);
-
         try {
-            calendarService.events()
-                    .delete("primary", meeting.getGoogleEventId())
-                    .execute();
-
-            meeting.setGoogleEventId(null);
-            meetingRepository.save(meeting);
-
-            log.info("Deleted Google Calendar event: {}", meeting.getGoogleEventId());
-
-        } catch (IOException e) {
-            log.error("Error deleting Google Calendar event", e);
-            // Don't throw exception, just log
+            Calendar calendar = getCalendarClient(accessToken);
+            calendar.events().delete("primary", eventId).execute();
+            log.info("✅ Google Calendar event deleted: {}", eventId);
+        } catch (Exception e) {
+            log.error("❌ Failed to delete Google Calendar event {}: {}", eventId, e.getMessage(), e);
         }
     }
 
@@ -378,5 +368,59 @@ public class GoogleCalendarService {
         event.setReminders(reminders);
 
         return event;
+    }
+
+    private Event buildEvent(Meeting meeting) {
+        Event event = new Event()
+                .setSummary(meeting.getTitle())
+                .setDescription(meeting.getDescription())
+                .setLocation(meeting.getMeetingRoom() != null ? meeting.getMeetingRoom().getName() : "");
+
+        EventDateTime start = new EventDateTime()
+                .setDateTime(new com.google.api.client.util.DateTime(
+                        meeting.getStartTime().atZone(ZoneId.of(TIME_ZONE)).toInstant().toEpochMilli()
+                ))
+                .setTimeZone(TIME_ZONE);
+        event.setStart(start);
+
+        EventDateTime end = new EventDateTime()
+                .setDateTime(new com.google.api.client.util.DateTime(
+                        meeting.getEndTime().atZone(ZoneId.of(TIME_ZONE)).toInstant().toEpochMilli()
+                ))
+                .setTimeZone(TIME_ZONE);
+        event.setEnd(end);
+
+        // ✅ Sửa các ký tự HTML-escaped thành Java thật
+        List<EventAttendee> attendees = new ArrayList<>();
+        for (MeetingParticipant participant : meeting.getParticipants()) {
+            if (participant.getUser() != null && participant.getUser().getEmail() != null) {
+                attendees.add(new EventAttendee().setEmail(participant.getUser().getEmail()));
+            }
+        }
+        if (!attendees.isEmpty()) {
+            event.setAttendees(attendees);
+        }
+
+        Event.Reminders reminders = new Event.Reminders()
+                .setUseDefault(false)
+                .setOverrides(Arrays.asList(
+                        new EventReminder().setMethod("email").setMinutes(30),
+                        new EventReminder().setMethod("popup").setMinutes(10)
+                ));
+        event.setReminders(reminders);
+
+        return event;
+    }
+
+    private Calendar getCalendarClient(String accessToken) throws Exception {
+        HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
+
+        HttpRequestInitializer initializer = request -> {
+            request.getHeaders().setAuthorization("Bearer " + accessToken);
+        };
+
+        return new Calendar.Builder(httpTransport, JSON_FACTORY, initializer)
+                .setApplicationName("Meeting Scheduling System")
+                .build();
     }
 }

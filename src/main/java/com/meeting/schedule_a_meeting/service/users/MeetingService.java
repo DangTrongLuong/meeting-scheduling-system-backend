@@ -75,14 +75,6 @@ public class MeetingService {
 
         meetingRepository.saveAndFlush(meeting);
 
-        if (googleCalendarService.isConnected(creatorId)) {
-            try {
-                googleCalendarService.syncMeetingToGoogle(meeting, creatorId);
-            } catch (Exception e) {
-                log.warn("Failed to auto-sync meeting to Google Calendar", e);
-            }
-        }
-
         assignDefaultRoomDevices(meeting);
         addParticipantsByEmail(meeting, request.getParticipants(), creatorId);
 
@@ -97,6 +89,7 @@ public class MeetingService {
     }
 
     /* ====================== UPDATE MEETING ====================== */
+
     @Transactional
     public MeetingResponse updateMeeting(String meetingId, UpdateMeetingRequest request, UUID userId) {
         Meeting meeting = meetingRepository.findById(meetingId)
@@ -113,10 +106,8 @@ public class MeetingService {
         }
 
         // Update title + description
-        if (request.getTitle() != null)
-            meeting.setTitle(request.getTitle());
-        if (request.getDescription() != null)
-            meeting.setDescription(request.getDescription());
+        if (request.getTitle() != null) meeting.setTitle(request.getTitle());
+        if (request.getDescription() != null) meeting.setDescription(request.getDescription());
 
         // Update time
         if (request.getStartTime() != null && request.getEndTime() != null) {
@@ -148,24 +139,28 @@ public class MeetingService {
 
         Meeting saved = meetingRepository.save(meeting);
 
-        if (googleCalendarService.isConnected(userId)) {
+        // ✅ Chỉ sync nếu meeting đã được duyệt
+        if (saved.getStatus() == MeetingStatus.SCHEDULED && googleCalendarService.isConnected(userId)) {
             try {
                 googleCalendarService.syncMeetingToGoogle(saved, userId);
             } catch (Exception e) {
-                log.warn("Failed to auto-sync meeting update to Google Calendar", e);
+                log.warn("Failed to sync meeting update to Google Calendar", e);
             }
+        } else {
+            log.info("Meeting {} not synced (status={}).", saved.getId(), saved.getStatus());
         }
 
+        // Gửi email thông báo cập nhật
         saved.getParticipants().forEach(mp -> {
             emailService.sendEmailMeetingUpdated(
-                    mp.getUser().getEmail(), // to
-                    saved.getTitle(), // meetingTitle
-                    saved.getDescription(), // description
-                    saved.getStartTime().toString(), // start
-                    saved.getEndTime().toString(), // end
-                    saved.getMeetingRoom().getName(), // room
-                    saved.getCreator().getName(), // updatedBy
-                    saved.getCreator().getEmail() // updatedByEmail
+                    mp.getUser().getEmail(),
+                    saved.getTitle(),
+                    saved.getDescription(),
+                    saved.getStartTime().toString(),
+                    saved.getEndTime().toString(),
+                    saved.getMeetingRoom().getName(),
+                    saved.getCreator().getName(),
+                    saved.getCreator().getEmail()
             );
         });
         emailService.sendEmailMeetingUpdated(
@@ -176,10 +171,11 @@ public class MeetingService {
                 saved.getEndTime().toString(),
                 saved.getMeetingRoom().getName(),
                 saved.getCreator().getName(),
-                saved.getCreator().getEmail());
-        //
+                saved.getCreator().getEmail()
+        );
 
         return meetingMapper.toMeetingResponse(saved);
+
     }
 
     public List<RoomDeviceResponse> getRoomDevices(String roomId) {
@@ -242,6 +238,7 @@ public class MeetingService {
     }
 
     /* ====================== CANCEL MEETING ====================== */
+
     @Transactional
     public void cancelMeeting(String meetingId, UUID userId, String reason) {
         Meeting meeting = meetingRepository.findById(meetingId)
@@ -259,17 +256,25 @@ public class MeetingService {
         meeting.setCancellationReason(reason);
         meetingRepository.save(meeting);
 
-        if (googleCalendarService.isConnected(userId)) {
+        // ✅ If meeting was synced, delete from Google Calendar
+        if (googleCalendarService.isConnected(userId)
+                && meeting.getGoogleEventId() != null
+                && meeting.getCreator().getAccessToken() != null
+                && !meeting.getCreator().getAccessToken().isEmpty()) {
             try {
-                googleCalendarService.deleteGoogleEvent(meetingId, userId);
+                googleCalendarService.deleteGoogleEvent(
+                        meeting.getGoogleEventId(),                    // Google event ID
+                        meeting.getCreator().getAccessToken()          // access token (String)
+                );
+                meeting.setGoogleEventId(null);
+                meetingRepository.save(meeting);
             } catch (Exception e) {
                 log.warn("Failed to delete meeting from Google Calendar", e);
             }
         }
 
         returnBorrowedDevices(meeting);
-        // ✅ Force load participants
-        meeting.getParticipants().size();
+        meeting.getParticipants().size(); // force load
 
         emailService.sendCancelMeetingEmail(meeting.getCreator().getEmail(), meeting);
         for (MeetingParticipant participant : meeting.getParticipants()) {
@@ -476,6 +481,31 @@ public class MeetingService {
 
         meeting.setStatus(MeetingStatus.SCHEDULED);
         Meeting savedMeeting = meetingRepository.save(meeting);
+
+        UUID creatorId = savedMeeting.getCreator().getId();
+        try {
+            if (googleCalendarService.isConnected(creatorId)) {
+                // If you already have syncMeetingToGoogle, use it:
+                googleCalendarService.syncMeetingToGoogle(savedMeeting, creatorId);
+
+                // Alternatively (if you want direct create/update):
+                // String token = savedMeeting.getCreator().getAccessToken();
+                // if (token != null && !token.isEmpty()) {
+                //     if (savedMeeting.getGoogleEventId() == null) {
+                //         String eventId = googleCalendarService.createGoogleEvent(savedMeeting, token);
+                //         savedMeeting.setGoogleEventId(eventId);
+                //         meetingRepository.save(savedMeeting);
+                //     } else {
+                //         googleCalendarService.updateGoogleEvent(savedMeeting.getGoogleEventId(), savedMeeting, token);
+                //     }
+                // }
+            } else {
+                log.info("Creator {} has not connected Google Calendar. Skipping sync.", creatorId);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to sync meeting {} to Google Calendar after approval", savedMeeting.getId(), e);
+        }
+
 
         // Lấy tất cả cuộc họp PENDING_APPROVAL trong cùng phòng, cùng thời gian
         List<Meeting> conflictingPendingMeetings = meetingRepository
