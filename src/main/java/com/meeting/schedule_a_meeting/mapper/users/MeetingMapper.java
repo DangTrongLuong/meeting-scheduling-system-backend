@@ -12,9 +12,22 @@ import java.util.stream.Collectors;
 public class MeetingMapper {
 
     public MeetingResponse toMeetingResponse(Meeting meeting) {
-        if (meeting == null) {
-            return null;
-        }
+        if (meeting == null) return null;
+
+        // Lớp an toàn: loại creator khỏi response participants
+        var participants = meeting.getParticipants() != null
+                ? meeting.getParticipants().stream()
+                .filter(mp -> mp.getUser() != null
+                        && !mp.getUser().getId().equals(meeting.getCreator().getId())) // ⛔ exclude creator
+                .map(this::toParticipantResponse)
+                .collect(Collectors.toList())
+                : Collections.<ParticipantResponse>emptyList();
+
+        var devices = meeting.getDevices() != null
+                ? meeting.getDevices().stream()
+                .map(this::toDeviceResponse)
+                .collect(Collectors.toList())
+                : Collections.<DeviceResponse>emptyList();
 
         return MeetingResponse.builder()
                 .id(meeting.getId())
@@ -25,16 +38,8 @@ public class MeetingMapper {
                 .status(meeting.getStatus())
                 .room(toRoomSummary(meeting.getMeetingRoom()))
                 .creator(toUserSummary(meeting.getCreator()))
-                .participants(meeting.getParticipants() != null
-                        ? meeting.getParticipants().stream()
-                        .map(this::toParticipantResponse)
-                        .collect(Collectors.toList())
-                        : Collections.emptyList())
-                .devices(meeting.getDevices() != null
-                        ? meeting.getDevices().stream()
-                        .map(this::toDeviceResponse)
-                        .collect(Collectors.toList())
-                        : Collections.emptyList())
+                .participants(participants)  // <-- đã loại creator
+                .devices(devices)
                 .createdAt(meeting.getCreatedAt())
                 .updatedAt(meeting.getUpdatedAt())
                 .build();
