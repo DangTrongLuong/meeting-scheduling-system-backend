@@ -137,6 +137,17 @@ public class MeetingService {
             updateBorrowedDevices(meeting, request.getBorrowedDevices());
         }
 
+        if (request.getParticipants() != null) {
+            // ✅ CHẶN MỜI CREATOR (lọc im lặng)
+            Users creator = meeting.getCreator();
+            List<ParticipantRequest> safeParticipants = request.getParticipants().stream()
+                    .filter(pr -> pr.getEmail() != null &&
+                            !pr.getEmail().equalsIgnoreCase(creator.getEmail()))
+                    .toList();
+
+            updateParticipants(meeting, safeParticipants, userId);
+        }
+
         Meeting saved = meetingRepository.save(meeting);
 
         // ✅ Chỉ sync nếu meeting đã được duyệt
@@ -422,8 +433,19 @@ public class MeetingService {
     }
 
     private void updateParticipants(Meeting meeting, List<ParticipantRequest> requests, UUID creatorId) {
+
         participantRepository.deleteByMeetingId(meeting.getId());
         meeting.getParticipants().clear();
+
+        // ✅ CHẶN MỜI CREATOR (lọc im lặng trước khi thêm)
+        if (requests != null) {
+            String creatorEmail = meeting.getCreator().getEmail();
+            requests = requests.stream()
+                    .filter(pr -> pr.getEmail() != null &&
+                            !pr.getEmail().equalsIgnoreCase(creatorEmail))
+                    .toList();
+        }
+
         addParticipantsByEmail(meeting, requests, creatorId);
     }
 
