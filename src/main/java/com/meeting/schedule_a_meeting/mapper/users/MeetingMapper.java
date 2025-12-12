@@ -5,6 +5,7 @@ import com.meeting.schedule_a_meeting.dto.response.users.meeting.*;
 import com.meeting.schedule_a_meeting.entities.*;
 import org.mapstruct.Mapper;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.stream.Collectors;
 
@@ -13,6 +14,8 @@ public class MeetingMapper {
 
     public MeetingResponse toMeetingResponse(Meeting meeting) {
         if (meeting == null) return null;
+        boolean hasConcluded = meeting.getEndTime() != null &&
+                meeting.getEndTime().isBefore(LocalDateTime.now());
 
         // Lớp an toàn: loại creator khỏi response participants
         var participants = meeting.getParticipants() != null
@@ -38,10 +41,11 @@ public class MeetingMapper {
                 .status(meeting.getStatus())
                 .room(toRoomSummary(meeting.getMeetingRoom()))
                 .creator(toUserSummary(meeting.getCreator()))
-                .participants(participants)  // <-- đã loại creator
+                .participants(participants)
                 .devices(devices)
                 .createdAt(meeting.getCreatedAt())
                 .updatedAt(meeting.getUpdatedAt())
+                .hasConcluded(hasConcluded)
                 .build();
     }
 

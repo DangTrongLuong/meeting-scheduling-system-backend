@@ -101,6 +101,9 @@ public class MeetingService {
         if (meeting.getStatus() == MeetingStatus.CANCELLED) {
             throw new AppException(ErrorStatus.MEETING_ALREADY_CANCELLED);
         }
+        if (meeting.getEndTime() != null && meeting.getEndTime().isBefore(LocalDateTime.now())) {
+               throw new AppException(ErrorStatus.MEETING_CANNOT_EDIT_PAST, "This meeting has concluded");
+        }
         if (meeting.getStartTime().isBefore(LocalDateTime.now().plusMinutes(1))) {
             throw new AppException(ErrorStatus.MEETING_CANNOT_EDIT_PAST);
         }
