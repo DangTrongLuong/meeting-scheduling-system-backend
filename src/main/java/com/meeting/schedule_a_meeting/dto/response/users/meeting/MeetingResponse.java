@@ -1,17 +1,13 @@
 package com.meeting.schedule_a_meeting.dto.response.users.meeting;
 
-import com.meeting.schedule_a_meeting.entities.MeetingRoom;
-import com.meeting.schedule_a_meeting.entities.Users;
 import com.meeting.schedule_a_meeting.enums.MeetingStatus;
 import lombok.*;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Data
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class MeetingResponse {
     private String id;
     private String title;
@@ -25,4 +21,5 @@ public class MeetingResponse {
     private List<DeviceResponse> devices;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private boolean hasConcluded;
 }
