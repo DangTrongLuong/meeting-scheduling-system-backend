@@ -1,18 +1,12 @@
 
 package com.meeting.schedule_a_meeting.service.users;
 
-import com.meeting.schedule_a_meeting.dto.request.users.meetting.*;
-import com.meeting.schedule_a_meeting.dto.response.users.meeting.*;
-import com.meeting.schedule_a_meeting.entities.*;
-import com.meeting.schedule_a_meeting.enums.*;
-import com.meeting.schedule_a_meeting.exception.AppException;
-import com.meeting.schedule_a_meeting.mapper.users.MeetingMapper;
-import com.meeting.schedule_a_meeting.repositories.*;
-import com.meeting.schedule_a_meeting.repositories.meeting.*;
-import com.meeting.schedule_a_meeting.service.users.EmailService;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -21,14 +15,40 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
+import com.meeting.schedule_a_meeting.dto.request.users.meetting.CreateMeetingRequest;
+import com.meeting.schedule_a_meeting.dto.request.users.meetting.DeviceBorrowRequest;
+import com.meeting.schedule_a_meeting.dto.request.users.meetting.ParticipantRequest;
+import com.meeting.schedule_a_meeting.dto.request.users.meetting.UpdateMeetingRequest;
 import com.meeting.schedule_a_meeting.dto.response.admin.RoomDeviceResponse;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.DeviceResponse;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.DeviceSummary;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.MeetingResponse;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.UserSummary;
+import com.meeting.schedule_a_meeting.entities.Device;
+import com.meeting.schedule_a_meeting.entities.Meeting;
+import com.meeting.schedule_a_meeting.entities.MeetingDevice;
+import com.meeting.schedule_a_meeting.entities.MeetingParticipant;
+import com.meeting.schedule_a_meeting.entities.MeetingRoom;
+import com.meeting.schedule_a_meeting.entities.Users;
+import com.meeting.schedule_a_meeting.enums.DeviceStatus;
+import com.meeting.schedule_a_meeting.enums.ErrorStatus;
+import com.meeting.schedule_a_meeting.enums.MeetingDeviceStatus;
+import com.meeting.schedule_a_meeting.enums.MeetingStatus;
+import com.meeting.schedule_a_meeting.enums.ParticipantRole;
+import com.meeting.schedule_a_meeting.enums.ParticipantStatus;
+import com.meeting.schedule_a_meeting.enums.RoomDeviceStatus;
+import com.meeting.schedule_a_meeting.exception.AppException;
+import com.meeting.schedule_a_meeting.mapper.users.MeetingMapper;
+import com.meeting.schedule_a_meeting.repositories.DeviceRepository;
+import com.meeting.schedule_a_meeting.repositories.MeetingRoomRepository;
+import com.meeting.schedule_a_meeting.repositories.RoomDeviceRepository;
+import com.meeting.schedule_a_meeting.repositories.UserRepository;
+import com.meeting.schedule_a_meeting.repositories.meeting.MeetingDeviceRepository;
+import com.meeting.schedule_a_meeting.repositories.meeting.MeetingParticipantRepository;
+import com.meeting.schedule_a_meeting.repositories.meeting.MeetingRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -109,8 +129,10 @@ public class MeetingService {
         }
 
         // Update title + description
-        if (request.getTitle() != null) meeting.setTitle(request.getTitle());
-        if (request.getDescription() != null) meeting.setDescription(request.getDescription());
+        if (request.getTitle() != null)
+            meeting.setTitle(request.getTitle());
+        if (request.getDescription() != null)
+            meeting.setDescription(request.getDescription());
 
         // Update time
         if (request.getStartTime() != null && request.getEndTime() != null) {
@@ -174,8 +196,7 @@ public class MeetingService {
                     saved.getEndTime().toString(),
                     saved.getMeetingRoom().getName(),
                     saved.getCreator().getName(),
-                    saved.getCreator().getEmail()
-            );
+                    saved.getCreator().getEmail());
         });
         emailService.sendEmailMeetingUpdated(
                 saved.getCreator().getEmail(),
@@ -185,8 +206,7 @@ public class MeetingService {
                 saved.getEndTime().toString(),
                 saved.getMeetingRoom().getName(),
                 saved.getCreator().getName(),
-                saved.getCreator().getEmail()
-        );
+                saved.getCreator().getEmail());
 
         return meetingMapper.toMeetingResponse(saved);
 
@@ -270,20 +290,23 @@ public class MeetingService {
         meeting.setCancellationReason(reason);
         meetingRepository.save(meeting);
 
-        // ✅ If meeting was synced, delete from Google Calendar
-        if (googleCalendarService.isConnected(userId)
-                && meeting.getGoogleEventId() != null
-                && meeting.getCreator().getAccessToken() != null
-                && !meeting.getCreator().getAccessToken().isEmpty()) {
+        UUID creatorId = meeting.getCreator().getId();
+
+        boolean isConnected = googleCalendarService.isConnected(creatorId);
+        if (isConnected && meeting.getGoogleEventId() != null && !meeting.getGoogleEventId().isBlank()) {
             try {
-                googleCalendarService.deleteGoogleEvent(
-                        meeting.getGoogleEventId(),                    // Google event ID
-                        meeting.getCreator().getAccessToken()          // access token (String)
-                );
+                googleCalendarService.deleteGoogleEventIfExists(meeting, creatorId);
+
+                // Xóa ID khỏi DB để lần sau không thử xóa lại
                 meeting.setGoogleEventId(null);
+                meeting.setLastSyncedAt(null);
                 meetingRepository.save(meeting);
+
+                log.info("Successfully deleted Google Calendar event for cancelled meeting {}", meetingId);
             } catch (Exception e) {
-                log.warn("Failed to delete meeting from Google Calendar", e);
+                log.warn("Failed to delete Google Calendar event {} when cancelling meeting {}",
+                        meeting.getGoogleEventId(), meetingId, e);
+                // Không throw → vẫn cho hủy meeting bình thường
             }
         }
 
@@ -516,13 +539,15 @@ public class MeetingService {
                 // Alternatively (if you want direct create/update):
                 // String token = savedMeeting.getCreator().getAccessToken();
                 // if (token != null && !token.isEmpty()) {
-                //     if (savedMeeting.getGoogleEventId() == null) {
-                //         String eventId = googleCalendarService.createGoogleEvent(savedMeeting, token);
-                //         savedMeeting.setGoogleEventId(eventId);
-                //         meetingRepository.save(savedMeeting);
-                //     } else {
-                //         googleCalendarService.updateGoogleEvent(savedMeeting.getGoogleEventId(), savedMeeting, token);
-                //     }
+                // if (savedMeeting.getGoogleEventId() == null) {
+                // String eventId = googleCalendarService.createGoogleEvent(savedMeeting,
+                // token);
+                // savedMeeting.setGoogleEventId(eventId);
+                // meetingRepository.save(savedMeeting);
+                // } else {
+                // googleCalendarService.updateGoogleEvent(savedMeeting.getGoogleEventId(),
+                // savedMeeting, token);
+                // }
                 // }
             } else {
                 log.info("Creator {} has not connected Google Calendar. Skipping sync.", creatorId);
@@ -530,7 +555,6 @@ public class MeetingService {
         } catch (Exception e) {
             log.warn("Failed to sync meeting {} to Google Calendar after approval", savedMeeting.getId(), e);
         }
-
 
         // Lấy tất cả cuộc họp PENDING_APPROVAL trong cùng phòng, cùng thời gian
         List<Meeting> conflictingPendingMeetings = meetingRepository
