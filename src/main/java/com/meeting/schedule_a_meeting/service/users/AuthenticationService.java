@@ -14,6 +14,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
+
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -22,6 +26,7 @@ public class AuthenticationService {
     UserRepository userRepository;
     JwtTokenUtil jwtTokenUtil;
     TwoFactorAuthService twoFactorAuthService;
+    EmailService emailService;
 
     private static final String DEFAULT_AVATAR_URL = "http://localhost:8080/uploads/avatars/user-avatar.png";
 
@@ -85,5 +90,48 @@ public class AuthenticationService {
                 .createdAt(user.getCreatedAt())
                 .authProvider("LOCAL")
                 .build();
+    }
+
+    private final Map<String, String> firstLoginCodeCache = new ConcurrentHashMap<>();
+    private final Map<String, Long> firstLoginCodeExpiry = new ConcurrentHashMap<>();
+
+    public void sendFirstLoginVerificationCode(String email) {
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Generate 6-digit code
+        String code = String.format("%06d", new Random().nextInt(999999));
+
+        // Lưu vào cache với thời gian hết hạn 10 phút
+        firstLoginCodeCache.put(email, code);
+        firstLoginCodeExpiry.put(email, System.currentTimeMillis() + 10 * 60 * 1000);
+
+        // Gửi email async
+        emailService.sendFirstLoginCodeEmail(email, code);
+    }
+
+    public boolean verifyFirstLoginCode(String email, String code) {
+        String cachedCode = firstLoginCodeCache.get(email);
+        Long expiry = firstLoginCodeExpiry.get(email);
+
+        if (cachedCode == null || expiry == null) {
+            return false;
+        }
+
+        if (System.currentTimeMillis() > expiry) {
+            // Code hết hạn
+            firstLoginCodeCache.remove(email);
+            firstLoginCodeExpiry.remove(email);
+            return false;
+        }
+
+        if (cachedCode.equals(code)) {
+            // Xóa code sau khi verify thành công
+            firstLoginCodeCache.remove(email);
+            firstLoginCodeExpiry.remove(email);
+            return true;
+        }
+
+        return false;
     }
 }
