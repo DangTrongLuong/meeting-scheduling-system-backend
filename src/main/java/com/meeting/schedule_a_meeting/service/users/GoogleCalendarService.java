@@ -1,6 +1,20 @@
 package com.meeting.schedule_a_meeting.service.users;
 
-import com.google.api.client.googleapis.auth.oauth2.*;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.auth.oauth2.GoogleRefreshTokenRequest;
+import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.http.HttpTransport;
@@ -25,19 +39,9 @@ import com.meeting.schedule_a_meeting.exception.AppException;
 import com.meeting.schedule_a_meeting.repositories.GoogleCalendarConnectionRepository;
 import com.meeting.schedule_a_meeting.repositories.UserRepository;
 import com.meeting.schedule_a_meeting.repositories.meeting.MeetingRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -107,7 +111,7 @@ public class GoogleCalendarService {
 
             GoogleCalendarConnection connection = GoogleCalendarConnection.builder()
                     .user(user)
-                    .googleEmail(user.getEmail())  // ← Dùng email từ bảng users
+                    .googleEmail(user.getEmail()) // ← Dùng email từ bảng users
                     .accessToken(tokenResponse.getAccessToken())
                     .refreshToken(tokenResponse.getRefreshToken())
                     .tokenExpiresAt(LocalDateTime.now().plusSeconds(tokenResponse.getExpiresInSeconds()))
@@ -191,8 +195,7 @@ public class GoogleCalendarService {
 
         for (Meeting meeting : meetings) {
             // Only sync SCHEDULED and PENDING_APPROVAL meetings
-            if (meeting.getStatus() == MeetingStatus.SCHEDULED ||
-                    meeting.getStatus() == MeetingStatus.PENDING_APPROVAL) {
+            if (meeting.getStatus() == MeetingStatus.SCHEDULED) {
                 try {
                     syncMeetingToGoogle(meeting, userId);
                     syncedCount++;
@@ -230,6 +233,41 @@ public class GoogleCalendarService {
             log.info("✅ Google Calendar event deleted: {}", eventId);
         } catch (Exception e) {
             log.error("❌ Failed to delete Google Calendar event {}: {}", eventId, e.getMessage(), e);
+        }
+    }
+
+    @Transactional
+    public void deleteGoogleEventIfExists(Meeting meeting, UUID userId) {
+        if (meeting.getGoogleEventId() == null || meeting.getGoogleEventId().isBlank()) {
+            log.info("Meeting {} has no Google Event ID -> nothing to delete on Google Calendar", meeting.getId());
+            return;
+        }
+
+        try {
+            GoogleCalendarConnection connection = getActiveConnection(userId);
+            Calendar calendarService = getCalendarService(connection);
+
+            calendarService.events()
+                    .delete("primary", meeting.getGoogleEventId())
+                    .execute();
+
+            log.info("Successfully deleted Google Calendar event {} for meeting {}", meeting.getGoogleEventId(),
+                    meeting.getId());
+
+            // Xóa ID khỏi DB để tránh thử xóa lại lần sau
+            meeting.setGoogleEventId(null);
+            meeting.setLastSyncedAt(null);
+
+        } catch (Exception e) {
+            // Nếu event đã bị xóa thủ công trên Google rồi → Google trả 410 Gone hoặc 404
+            if (e.getMessage() != null && (e.getMessage().contains("410") || e.getMessage().contains("404"))) {
+                log.info("Google Event {} already deleted or not found (normal when user deleted manually)",
+                        meeting.getGoogleEventId());
+                meeting.setGoogleEventId(null); // vẫn dọn dẹp DB
+            } else {
+                log.warn("Failed to delete Google Calendar event {} for meeting {}", meeting.getGoogleEventId(),
+                        meeting.getId(), e);
+            }
         }
     }
 
@@ -295,13 +333,11 @@ public class GoogleCalendarService {
                     jsonFactory,
                     connection.getRefreshToken(),
                     googleConfig.getClientId(),
-                    googleConfig.getClientSecret()
-            ).execute();
+                    googleConfig.getClientSecret()).execute();
 
             connection.setAccessToken(tokenResponse.getAccessToken());
             connection.setTokenExpiresAt(
-                    LocalDateTime.now().plusSeconds(tokenResponse.getExpiresInSeconds())
-            );
+                    LocalDateTime.now().plusSeconds(tokenResponse.getExpiresInSeconds()));
 
             connectionRepository.save(connection);
             log.info("Access token refreshed successfully");
@@ -336,16 +372,14 @@ public class GoogleCalendarService {
         // Set start time
         EventDateTime start = new EventDateTime()
                 .setDateTime(new com.google.api.client.util.DateTime(
-                        meeting.getStartTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                ))
+                        meeting.getStartTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()))
                 .setTimeZone("Asia/Ho_Chi_Minh");
         event.setStart(start);
 
         // Set end time
         EventDateTime end = new EventDateTime()
                 .setDateTime(new com.google.api.client.util.DateTime(
-                        meeting.getEndTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                ))
+                        meeting.getEndTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()))
                 .setTimeZone("Asia/Ho_Chi_Minh");
         event.setEnd(end);
 
@@ -363,8 +397,7 @@ public class GoogleCalendarService {
                 .setUseDefault(false)
                 .setOverrides(Arrays.asList(
                         new EventReminder().setMethod("email").setMinutes(30),
-                        new EventReminder().setMethod("popup").setMinutes(10)
-                ));
+                        new EventReminder().setMethod("popup").setMinutes(10)));
         event.setReminders(reminders);
 
         return event;
@@ -378,15 +411,13 @@ public class GoogleCalendarService {
 
         EventDateTime start = new EventDateTime()
                 .setDateTime(new com.google.api.client.util.DateTime(
-                        meeting.getStartTime().atZone(ZoneId.of(TIME_ZONE)).toInstant().toEpochMilli()
-                ))
+                        meeting.getStartTime().atZone(ZoneId.of(TIME_ZONE)).toInstant().toEpochMilli()))
                 .setTimeZone(TIME_ZONE);
         event.setStart(start);
 
         EventDateTime end = new EventDateTime()
                 .setDateTime(new com.google.api.client.util.DateTime(
-                        meeting.getEndTime().atZone(ZoneId.of(TIME_ZONE)).toInstant().toEpochMilli()
-                ))
+                        meeting.getEndTime().atZone(ZoneId.of(TIME_ZONE)).toInstant().toEpochMilli()))
                 .setTimeZone(TIME_ZONE);
         event.setEnd(end);
 
@@ -405,8 +436,7 @@ public class GoogleCalendarService {
                 .setUseDefault(false)
                 .setOverrides(Arrays.asList(
                         new EventReminder().setMethod("email").setMinutes(30),
-                        new EventReminder().setMethod("popup").setMinutes(10)
-                ));
+                        new EventReminder().setMethod("popup").setMinutes(10)));
         event.setReminders(reminders);
 
         return event;
