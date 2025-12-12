@@ -4,6 +4,7 @@ import com.meeting.schedule_a_meeting.entities.Meeting;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -12,6 +13,7 @@ public class EmailService {
     @Autowired
     private JavaMailSender mailSender;
 
+    @Async
     public void sendVerificationEmail(String to, String verifyLink) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);
@@ -20,6 +22,7 @@ public class EmailService {
         mailSender.send(message);
     }
 
+    @Async
     public void sendResetCodeEmail(String to, String code) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);
@@ -33,7 +36,24 @@ public class EmailService {
         mailSender.send(message);
     }
 
+    @Async
+    public void sendFirstLoginCodeEmail(String to, String code) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setSubject("First Login Verification Code");
+        message.setText(
+                "Welcome! This is your first login.\n\n" +
+                        "Your verification code is:\n\n" +
+                        "   " + code + "\n\n" +
+                        "This code will expire in 10 minutes.\n" +
+                        "Please enter this code to continue setting up your account.\n\n" +
+                        "If you didn't request this, please contact support immediately."
+        );
+        mailSender.send(message);
+    }
+
     // ✅ Thêm phương thức gửi email nhắc nhở
+    @Async
     public void sendReminderEmail(String to, Meeting meeting) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);
@@ -49,6 +69,7 @@ public class EmailService {
         mailSender.send(message);
     }
 
+    @Async
     public void sendEmailConfirmMeeting(String to, String title, String description,
                                         String startTime, String endTime,
                                         String roomName, String createdBy, String createdByEmail) {
@@ -74,6 +95,7 @@ public class EmailService {
         mailSender.send(message);
     }
 
+    @Async
     public void sendCancelMeetingEmail(String to, Meeting meeting) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);
@@ -91,6 +113,7 @@ public class EmailService {
         mailSender.send(message);
     }
 
+    @Async
     public void sendEmailMeetingUpdated(String to, String title, String description,
                                         String startTime, String endTime,
                                         String roomName, String updatedBy, String updatedByEmail) {

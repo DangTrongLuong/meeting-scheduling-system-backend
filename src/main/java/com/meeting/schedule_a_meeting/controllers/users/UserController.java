@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.meeting.schedule_a_meeting.service.users.AuthenticationService;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,10 +38,11 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping("/api/auth")
 public class UserController {
 
-    private final UserService userService;
+    UserService userService;
+    UserRepository userRepository;
+    PasswordEncoder passwordEncoder;
+    AuthenticationService authenticationService;
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
 
     @PostMapping("/register")
     public ResponseEntity<?> createUser(@RequestBody UserCreationRequest request) {
@@ -184,6 +186,37 @@ public class UserController {
             errorResponse.put("success", false);
             errorResponse.put("message", "Internal server error");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    @PostMapping("/send-first-login-code")
+    public ResponseEntity<?> sendFirstLoginCode(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        authenticationService.sendFirstLoginVerificationCode(email);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("message", "Verification code sent to your email. Please check your inbox.");
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify-first-login-code")
+    public ResponseEntity<?> verifyFirstLoginCode(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String code = body.get("code");
+
+        boolean isValid = authenticationService.verifyFirstLoginCode(email, code);
+
+        Map<String, Object> response = new HashMap<>();
+        if (isValid) {
+            response.put("status", "success");
+            response.put("message", "Code verified successfully");
+            return ResponseEntity.ok(response);
+        } else {
+            response.put("status", "error");
+            response.put("message", "Invalid or expired code");
+            return ResponseEntity.badRequest().body(response);
         }
     }
 
