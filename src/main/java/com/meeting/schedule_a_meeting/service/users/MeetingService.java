@@ -1,9 +1,11 @@
-
 package com.meeting.schedule_a_meeting.service.users;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -15,6 +17,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.meeting.schedule_a_meeting.dto.request.users.meetting.CreateMeetingRequest;
 import com.meeting.schedule_a_meeting.dto.request.users.meetting.DeviceBorrowRequest;
 import com.meeting.schedule_a_meeting.dto.request.users.meetting.ParticipantRequest;
@@ -66,6 +69,7 @@ public class MeetingService {
     private final EmailService emailService;
     private final GoogleCalendarService googleCalendarService;
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final LocalTime MORNING_START = LocalTime.of(7, 0);
     private static final LocalTime MORNING_END = LocalTime.of(12, 0);
     private static final LocalTime AFTERNOON_START = LocalTime.of(13, 0);
@@ -74,42 +78,180 @@ public class MeetingService {
     /* ====================== CREATE MEETING ====================== */
     @Transactional
     public MeetingResponse createMeeting(CreateMeetingRequest request, UUID creatorId) {
-        validateMeetingTime(request.getStartTime(), request.getEndTime());
-        validateRoomAvailability(request.getRoomId(), request.getStartTime(), request.getEndTime(), null);
+        log.info("=== CREATE MEETING REQUEST ===");
+        log.info("Title: {}", request.getTitle());
+        log.info("Date: {}", request.getDate());
+        log.info("StartTime: {}, EndTime: {}", request.getStartTime(), request.getEndTime());
+        log.info("IsRepeat: {}, RepeatDays: {}", request.isRepeat(), request.getRepeatDays());
+        log.info("RoomId: {}", request.getRoomId());
+
+        // Validate input
+        if (request.getDate() == null || request.getDate().isEmpty()) {
+            throw new AppException(ErrorStatus.INVALID_INPUT, "Date is required");
+        }
+        if (request.getStartTime() == null || request.getStartTime().isEmpty()) {
+            throw new AppException(ErrorStatus.INVALID_INPUT, "Start time is required");
+        }
+        if (request.getEndTime() == null || request.getEndTime().isEmpty()) {
+            throw new AppException(ErrorStatus.INVALID_INPUT, "End time is required");
+        }
+
+        // Parse time từ HH:mm format
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+        LocalTime startTime = LocalTime.parse(request.getStartTime(), timeFormatter);
+        LocalTime endTime = LocalTime.parse(request.getEndTime(), timeFormatter);
+
+        // Validate meeting time
+        validateMeetingTime(startTime, endTime);
 
         Users creator = userRepository.findById(creatorId)
                 .orElseThrow(() -> new AppException(ErrorStatus.USER_NOT_FOUND));
+
         MeetingRoom room = meetingRoomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new AppException(ErrorStatus.ROOM_NOT_FOUND));
+
+        List<Meeting> createdMeetings = new ArrayList<>();
+
+        log.info("About to create meetings - isRepeat: {}, repeatDays count: {}",
+                request.isRepeat(), request.getRepeatDays() != null ? request.getRepeatDays().size() : 0);
+
+        if (request.isRepeat() && request.getRepeatDays() != null && !request.getRepeatDays().isEmpty()) {
+            // Tạo repeat meetings (1 cho mỗi ngày)
+            log.info("Creating repeat meetings for days: {}", request.getRepeatDays());
+            createdMeetings = createRepeatMeetings(request, creator, room, startTime, endTime);
+        } else {
+            // Tạo single meeting
+            log.info("Creating single meeting (isRepeat={}, repeatDays={})",
+                    request.isRepeat(), request.getRepeatDays());
+            Meeting meeting = createSingleMeeting(request, creator, room, startTime, endTime);
+            createdMeetings.add(meeting);
+        }
+
+        log.info("Total meetings created: {}", createdMeetings.size());
+
+        // Fetch first meeting để return
+        Meeting firstMeeting = meetingRepository.findById(createdMeetings.get(0).getId())
+                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+
+        return meetingMapper.toMeetingResponse(firstMeeting);
+    }
+
+    /**
+     * Tạo meetings lặp lại cho từng ngày được chọn trong tuần
+     */
+    private List<Meeting> createRepeatMeetings(CreateMeetingRequest request, Users creator,
+            MeetingRoom room, LocalTime startTime, LocalTime endTime) {
+
+        String repeatGroupId = UUID.randomUUID().toString();
+        List<Meeting> meetings = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+
+        // Parse date từ request (yyyy-MM-dd)
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        LocalDate selectedDate = LocalDate.parse(request.getDate(), dateFormatter);
+
+        // Lấy Monday của tuần chứa selectedDate
+        LocalDate monday = selectedDate.with(DayOfWeek.MONDAY);
+        log.info("Selected date: {}, Monday of that week: {}", selectedDate, monday);
+
+        String repeatDaysJson = convertListToJson(request.getRepeatDays());
+
+        for (String dayStr : request.getRepeatDays()) {
+            DayOfWeek dayOfWeek = DayOfWeek.valueOf(dayStr);
+            // Tính ngày trong tuần được chọn
+            LocalDate meetingDate = monday.with(dayOfWeek);
+
+            log.info("Processing day: {} -> date: {}", dayStr, meetingDate);
+
+            // Kiểm tra ngày không được trong quá khứ
+            if (meetingDate.isBefore(today)) {
+                log.warn("Day {} ({}) is in the past", dayStr, meetingDate);
+                throw new AppException(ErrorStatus.MEETING_INVALID_TIME_RANGE,
+                        dayStr + " has already passed this week");
+            }
+
+            // Tạo datetime từ LocalDate và LocalTime
+            LocalDateTime startDateTime = LocalDateTime.of(meetingDate, startTime);
+            LocalDateTime endDateTime = LocalDateTime.of(meetingDate, endTime);
+
+            // Kiểm tra room availability
+            validateRoomAvailability(room.getId(), startDateTime, endDateTime, null);
+
+            // Build meeting
+            Meeting meeting = Meeting.builder()
+                    .title(request.getTitle())
+                    .description(request.getDescription())
+                    .startTime(startDateTime)
+                    .endTime(endDateTime)
+                    .meetingRoom(room)
+                    .creator(creator)
+                    .status(MeetingStatus.PENDING_APPROVAL)
+                    .createdBy(creator.getName())
+                    .isRepeat(true)
+                    .repeatGroupId(repeatGroupId)
+                    .repeatDays(repeatDaysJson)
+                    .build();
+
+            meetingRepository.saveAndFlush(meeting);
+            log.info("Meeting created: {} for date {}", meeting.getId(), meetingDate);
+
+            // Assign devices và participants
+            assignDefaultRoomDevices(meeting);
+            addParticipantsByEmail(meeting, request.getParticipants(), creator.getId());
+
+            if (request.getBorrowedDevices() != null && !request.getBorrowedDevices().isEmpty()) {
+                request.getBorrowedDevices().forEach(deviceReq -> borrowAdditionalDevice(meeting, deviceReq));
+            }
+
+            meetings.add(meeting);
+        }
+
+        return meetings;
+    }
+
+    /**
+     * Tạo single meeting cho ngày được chọn
+     */
+    private Meeting createSingleMeeting(CreateMeetingRequest request, Users creator,
+            MeetingRoom room, LocalTime startTime, LocalTime endTime) {
+
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        LocalDate selectedDate = LocalDate.parse(request.getDate(), dateFormatter);
+
+        LocalDateTime startDateTime = LocalDateTime.of(selectedDate, startTime);
+        LocalDateTime endDateTime = LocalDateTime.of(selectedDate, endTime);
+
+        log.info("Creating single meeting for date: {}", selectedDate);
+
+        // Kiểm tra room availability
+        validateRoomAvailability(room.getId(), startDateTime, endDateTime, null);
 
         Meeting meeting = Meeting.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
-                .startTime(request.getStartTime())
-                .endTime(request.getEndTime())
+                .startTime(startDateTime)
+                .endTime(endDateTime)
                 .meetingRoom(room)
                 .creator(creator)
                 .status(MeetingStatus.PENDING_APPROVAL)
                 .createdBy(creator.getName())
+                .isRepeat(false)
                 .build();
 
         meetingRepository.saveAndFlush(meeting);
+        log.info("Single meeting created: {}", meeting.getId());
 
         assignDefaultRoomDevices(meeting);
-        addParticipantsByEmail(meeting, request.getParticipants(), creatorId);
+        addParticipantsByEmail(meeting, request.getParticipants(), creator.getId());
 
         if (request.getBorrowedDevices() != null && !request.getBorrowedDevices().isEmpty()) {
             request.getBorrowedDevices().forEach(deviceReq -> borrowAdditionalDevice(meeting, deviceReq));
         }
 
-        Meeting updatedMeeting = meetingRepository.findById(meeting.getId())
-                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
-
-        return meetingMapper.toMeetingResponse(updatedMeeting);
+        return meeting;
     }
 
     /* ====================== UPDATE MEETING ====================== */
-
     @Transactional
     public MeetingResponse updateMeeting(String meetingId, UpdateMeetingRequest request, UUID userId) {
         Meeting meeting = meetingRepository.findById(meetingId)
@@ -122,7 +264,7 @@ public class MeetingService {
             throw new AppException(ErrorStatus.MEETING_ALREADY_CANCELLED);
         }
         if (meeting.getEndTime() != null && meeting.getEndTime().isBefore(LocalDateTime.now())) {
-               throw new AppException(ErrorStatus.MEETING_CANNOT_EDIT_PAST, "This meeting has concluded");
+            throw new AppException(ErrorStatus.MEETING_CANNOT_EDIT_PAST, "This meeting has concluded");
         }
         if (meeting.getStartTime().isBefore(LocalDateTime.now().plusMinutes(1))) {
             throw new AppException(ErrorStatus.MEETING_CANNOT_EDIT_PAST);
@@ -136,12 +278,20 @@ public class MeetingService {
 
         // Update time
         if (request.getStartTime() != null && request.getEndTime() != null) {
-            validateMeetingTime(request.getStartTime(), request.getEndTime());
+            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+            LocalTime startTime = LocalTime.parse(request.getStartTime(), timeFormatter);
+            LocalTime endTime = LocalTime.parse(request.getEndTime(), timeFormatter);
+            validateMeetingTime(startTime, endTime);
+
+            LocalDate meetingDate = meeting.getStartTime().toLocalDate();
+            LocalDateTime startDateTime = LocalDateTime.of(meetingDate, startTime);
+            LocalDateTime endDateTime = LocalDateTime.of(meetingDate, endTime);
+
             validateRoomAvailability(
                     request.getRoomId() != null ? request.getRoomId() : meeting.getMeetingRoom().getId(),
-                    request.getStartTime(), request.getEndTime(), meetingId);
-            meeting.setStartTime(request.getStartTime());
-            meeting.setEndTime(request.getEndTime());
+                    startDateTime, endDateTime, meetingId);
+            meeting.setStartTime(startDateTime);
+            meeting.setEndTime(endDateTime);
         }
 
         // Update room
@@ -162,31 +312,18 @@ public class MeetingService {
             updateBorrowedDevices(meeting, request.getBorrowedDevices());
         }
 
-        if (request.getParticipants() != null) {
-            // ✅ CHẶN MỜI CREATOR (lọc im lặng)
-            Users creator = meeting.getCreator();
-            List<ParticipantRequest> safeParticipants = request.getParticipants().stream()
-                    .filter(pr -> pr.getEmail() != null &&
-                            !pr.getEmail().equalsIgnoreCase(creator.getEmail()))
-                    .toList();
-
-            updateParticipants(meeting, safeParticipants, userId);
-        }
-
         Meeting saved = meetingRepository.save(meeting);
 
-        // ✅ Chỉ sync nếu meeting đã được duyệt
+        // Sync với Google Calendar nếu meeting đã được approved
         if (saved.getStatus() == MeetingStatus.SCHEDULED && googleCalendarService.isConnected(userId)) {
             try {
                 googleCalendarService.syncMeetingToGoogle(saved, userId);
             } catch (Exception e) {
                 log.warn("Failed to sync meeting update to Google Calendar", e);
             }
-        } else {
-            log.info("Meeting {} not synced (status={}).", saved.getId(), saved.getStatus());
         }
 
-        // Gửi email thông báo cập nhật
+        // Gửi email thông báo update
         saved.getParticipants().forEach(mp -> {
             emailService.sendEmailMeetingUpdated(
                     mp.getUser().getEmail(),
@@ -198,18 +335,194 @@ public class MeetingService {
                     saved.getCreator().getName(),
                     saved.getCreator().getEmail());
         });
-        emailService.sendEmailMeetingUpdated(
-                saved.getCreator().getEmail(),
-                saved.getTitle(),
-                saved.getDescription(),
-                saved.getStartTime().toString(),
-                saved.getEndTime().toString(),
-                saved.getMeetingRoom().getName(),
-                saved.getCreator().getName(),
-                saved.getCreator().getEmail());
 
         return meetingMapper.toMeetingResponse(saved);
+    }
 
+    /* ====================== CANCEL MEETING ====================== */
+    @Transactional
+    public void cancelMeeting(String meetingId, UUID userId, String reason) {
+        Meeting meeting = meetingRepository.findById(meetingId)
+                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+
+        if (!meeting.getCreator().getId().equals(userId)) {
+            throw new AppException(ErrorStatus.MEETING_CREATOR_REQUIRED);
+        }
+        if (meeting.getStatus() == MeetingStatus.CANCELLED) {
+            throw new AppException(ErrorStatus.MEETING_ALREADY_CANCELLED);
+        }
+
+        meeting.setStatus(MeetingStatus.CANCELLED);
+        meeting.setCancelledAt(LocalDateTime.now());
+        meeting.setCancellationReason(reason);
+        meetingRepository.save(meeting);
+
+        UUID creatorId = meeting.getCreator().getId();
+
+        boolean isConnected = googleCalendarService.isConnected(creatorId);
+        if (isConnected && meeting.getGoogleEventId() != null && !meeting.getGoogleEventId().isBlank()) {
+            try {
+                googleCalendarService.deleteGoogleEventIfExists(meeting, creatorId);
+                meeting.setGoogleEventId(null);
+                meeting.setLastSyncedAt(null);
+                meetingRepository.save(meeting);
+                log.info("Successfully deleted Google Calendar event for cancelled meeting {}", meetingId);
+            } catch (Exception e) {
+                log.warn("Failed to delete Google Calendar event", e);
+            }
+        }
+
+        returnBorrowedDevices(meeting);
+
+        emailService.sendCancelMeetingEmail(meeting.getCreator().getEmail(), meeting);
+        for (MeetingParticipant participant : meeting.getParticipants()) {
+            emailService.sendCancelMeetingEmail(participant.getUser().getEmail(), meeting);
+        }
+    }
+
+    /* ====================== APPROVE MEETING ====================== */
+    @Transactional
+    public Meeting approveMeeting(String id) {
+        Meeting meeting = meetingRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+
+        if (meeting.getStatus() == MeetingStatus.CANCELLED) {
+            throw new AppException(ErrorStatus.MEETING_ALREADY_CANCELLED);
+        }
+
+        meeting.setStatus(MeetingStatus.SCHEDULED);
+        Meeting savedMeeting = meetingRepository.save(meeting);
+        log.info("Meeting {} approved", id);
+
+        UUID creatorId = savedMeeting.getCreator().getId();
+
+        // Sync với Google Calendar
+        try {
+            if (googleCalendarService.isConnected(creatorId)) {
+                googleCalendarService.syncMeetingToGoogle(savedMeeting, creatorId);
+            } else {
+                log.info("Creator {} has not connected Google Calendar", creatorId);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to sync meeting {} to Google Calendar", savedMeeting.getId(), e);
+        }
+
+        // Nếu là repeat meeting, approve tất cả meetings trong group
+        if (savedMeeting.isRepeat() && savedMeeting.getRepeatGroupId() != null) {
+            log.info("Approving all repeat meetings with group ID: {}", savedMeeting.getRepeatGroupId());
+            List<Meeting> groupMeetings = meetingRepository.findByRepeatGroupId(savedMeeting.getRepeatGroupId());
+
+            for (Meeting m : groupMeetings) {
+                if (!m.getId().equals(id) && m.getStatus() == MeetingStatus.PENDING_APPROVAL) {
+                    m.setStatus(MeetingStatus.SCHEDULED);
+                    meetingRepository.save(m);
+                    log.info("Meeting {} approved as part of repeat group", m.getId());
+
+                    // Sync to Google Calendar for this meeting too
+                    try {
+                        if (googleCalendarService.isConnected(creatorId)) {
+                            googleCalendarService.syncMeetingToGoogle(m, creatorId);
+                        }
+                    } catch (Exception e) {
+                        log.warn("Failed to sync repeat meeting {} to Google Calendar", m.getId(), e);
+                    }
+                }
+            }
+        }
+
+        return savedMeeting;
+    }
+
+    /* ====================== REJECT MEETING ====================== */
+    @Transactional
+    public Meeting rejectMeeting(String id) {
+        Meeting meeting = meetingRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+
+        if (meeting.getStatus() == MeetingStatus.CANCELLED) {
+            throw new AppException(ErrorStatus.MEETING_ALREADY_CANCELLED);
+        }
+
+        meeting.setStatus(MeetingStatus.CANCELLED);
+        meeting.setCancelledAt(LocalDateTime.now());
+        meeting.setCancellationReason("Rejected by admin");
+        Meeting savedMeeting = meetingRepository.save(meeting);
+        log.info("Meeting {} rejected", id);
+
+        // Nếu là repeat meeting, reject tất cả meetings trong group
+        if (savedMeeting.isRepeat() && savedMeeting.getRepeatGroupId() != null) {
+            log.info("Rejecting all repeat meetings with group ID: {}", savedMeeting.getRepeatGroupId());
+            List<Meeting> groupMeetings = meetingRepository.findByRepeatGroupId(savedMeeting.getRepeatGroupId());
+
+            for (Meeting m : groupMeetings) {
+                if (!m.getId().equals(id) && m.getStatus() == MeetingStatus.PENDING_APPROVAL) {
+                    m.setStatus(MeetingStatus.CANCELLED);
+                    m.setCancelledAt(LocalDateTime.now());
+                    m.setCancellationReason("Rejected as part of repeat group");
+                    meetingRepository.save(m);
+                    log.info("Meeting {} rejected as part of repeat group", m.getId());
+                }
+            }
+        }
+
+        return savedMeeting;
+    }
+
+    /* ====================== GET METHODS ====================== */
+    public MeetingResponse getMeetingById(String meetingId, UUID userId) {
+        Meeting meeting = meetingRepository.findByIdWithParticipants(meetingId)
+                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+
+        if (!hasAccess(meeting, userId)) {
+            throw new AppException(ErrorStatus.FORBIDDEN);
+        }
+
+        Meeting updatedMeeting = meetingRepository.findById(meeting.getId())
+                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+
+        return meetingMapper.toMeetingResponse(updatedMeeting);
+    }
+
+    public List<MeetingResponse> getMyMeetings(UUID userId) {
+        return meetingRepository.findMeetingsByUser(userId).stream()
+                .map(meetingMapper::toMeetingResponse)
+                .toList();
+    }
+
+    public List<MeetingResponse> getMyCreatedMeetings(UUID userId) {
+        return meetingRepository.findByCreatorIdOrderByStartTimeDesc(userId).stream()
+                .map(meetingMapper::toMeetingResponse)
+                .toList();
+    }
+
+    public List<MeetingResponse> getRoomSchedule(String roomId, LocalDateTime startDate, LocalDateTime endDate) {
+        return meetingRepository.findMeetingsByRoomAndDateRange(roomId, startDate, endDate).stream()
+                .map(meetingMapper::toMeetingResponse)
+                .toList();
+    }
+
+    public Page<MeetingResponse> getAllMeetings(int page, int size, String sortBy, String direction) {
+        Pageable pageable = PageRequest.of(page, size,
+                direction.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
+
+        Page<Meeting> meetings = meetingRepository.findAll(pageable);
+        return meetings.map(meetingMapper::toMeetingResponse);
+    }
+
+    public List<Meeting> getPendingMeetings() {
+        return meetingRepository.findByStatus(MeetingStatus.PENDING_APPROVAL);
+    }
+
+    public boolean isRoomAvailable(String roomId, String date, String start, String end) {
+        DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
+
+        String startIso = date + "T" + start;
+        String endIso = date + "T" + end;
+
+        LocalDateTime startDateTime = LocalDateTime.parse(startIso, f);
+        LocalDateTime endDateTime = LocalDateTime.parse(endIso, f);
+
+        return !meetingRepository.existsConflict(roomId, startDateTime, endDateTime);
     }
 
     public List<RoomDeviceResponse> getRoomDevices(String roomId) {
@@ -243,9 +556,7 @@ public class MeetingService {
                                 .name(device.getName())
                                 .imagePath(device.getImagePath())
                                 .build())
-
                         .status(MeetingDeviceStatus.valueOf(device.getStatus().name()))
-
                         .quantity(device.getTotalQuantity())
                         .availableQuantity(device.getAvailableQuantity())
                         .build())
@@ -253,105 +564,46 @@ public class MeetingService {
     }
 
     @Transactional
-    public void deleteMeeting(String meetingId, UUID currentUserId) {
-        Meeting meeting = meetingRepository.findById(meetingId)
-                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+    public void updateParticipantStatusByEmailAndMeeting(String email, String meetingId, ParticipantStatus status) {
+        MeetingParticipant participant = participantRepository
+                .findByMeetingIdAndUserEmail(meetingId, email)
+                .orElseThrow(
+                        () -> new AppException(ErrorStatus.PARTICIPANT_NOT_FOUND, "Invitation not found or invalid"));
 
-        if (!meeting.getCreator().getId().equals(currentUserId)) {
-            throw new AppException(ErrorStatus.MEETING_CREATOR_REQUIRED);
+        if (participant.getStatus() != ParticipantStatus.PENDING) {
+            throw new AppException(ErrorStatus.FORBIDDEN, "This invitation has already been responded to");
         }
 
-        if (meeting.getStatus() == MeetingStatus.CANCELLED) {
-            throw new AppException(ErrorStatus.MEETING_ALREADY_CANCELLED);
+        if (status != ParticipantStatus.ACCEPTED && status != ParticipantStatus.DECLINED) {
+            throw new AppException(ErrorStatus.INVALID_INPUT, "Status must be ACCEPTED or DECLINED");
         }
 
-        participantRepository.deleteByMeetingId(meetingId);
-        meetingDeviceRepository.deleteByMeetingId(meetingId);
-
-        meetingRepository.delete(meeting);
-    }
-
-    /* ====================== CANCEL MEETING ====================== */
-
-    @Transactional
-    public void cancelMeeting(String meetingId, UUID userId, String reason) {
-        Meeting meeting = meetingRepository.findById(meetingId)
-                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
-
-        if (!meeting.getCreator().getId().equals(userId)) {
-            throw new AppException(ErrorStatus.MEETING_CREATOR_REQUIRED);
-        }
-        if (meeting.getStatus() == MeetingStatus.CANCELLED) {
-            throw new AppException(ErrorStatus.MEETING_ALREADY_CANCELLED);
-        }
-
-        meeting.setStatus(MeetingStatus.CANCELLED);
-        meeting.setCancelledAt(LocalDateTime.now());
-        meeting.setCancellationReason(reason);
-        meetingRepository.save(meeting);
-
-        UUID creatorId = meeting.getCreator().getId();
-
-        boolean isConnected = googleCalendarService.isConnected(creatorId);
-        if (isConnected && meeting.getGoogleEventId() != null && !meeting.getGoogleEventId().isBlank()) {
-            try {
-                googleCalendarService.deleteGoogleEventIfExists(meeting, creatorId);
-
-                // Xóa ID khỏi DB để lần sau không thử xóa lại
-                meeting.setGoogleEventId(null);
-                meeting.setLastSyncedAt(null);
-                meetingRepository.save(meeting);
-
-                log.info("Successfully deleted Google Calendar event for cancelled meeting {}", meetingId);
-            } catch (Exception e) {
-                log.warn("Failed to delete Google Calendar event {} when cancelling meeting {}",
-                        meeting.getGoogleEventId(), meetingId, e);
-                // Không throw → vẫn cho hủy meeting bình thường
-            }
-        }
-
-        returnBorrowedDevices(meeting);
-        meeting.getParticipants().size(); // force load
-
-        emailService.sendCancelMeetingEmail(meeting.getCreator().getEmail(), meeting);
-        for (MeetingParticipant participant : meeting.getParticipants()) {
-            emailService.sendCancelMeetingEmail(participant.getUser().getEmail(), meeting);
-        }
-    }
-
-    /* ====================== GET METHODS ====================== */
-    public MeetingResponse getMeetingById(String meetingId, UUID userId) {
-        Meeting meeting = meetingRepository.findByIdWithParticipants(meetingId)
-                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
-
-        if (!hasAccess(meeting, userId)) {
-            throw new AppException(ErrorStatus.FORBIDDEN);
-        }
-        Meeting updatedMeeting = meetingRepository.findById(meeting.getId())
-                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
-
-        return meetingMapper.toMeetingResponse(updatedMeeting);
-    }
-
-    public List<MeetingResponse> getMyMeetings(UUID userId) {
-        return meetingRepository.findMeetingsByUser(userId).stream()
-                .map(meetingMapper::toMeetingResponse)
-                .toList();
-    }
-
-    public List<MeetingResponse> getMyCreatedMeetings(UUID userId) {
-        return meetingRepository.findByCreatorIdOrderByStartTimeDesc(userId).stream()
-                .map(meetingMapper::toMeetingResponse)
-                .toList();
-    }
-
-    public List<MeetingResponse> getRoomSchedule(String roomId, LocalDateTime startDate, LocalDateTime endDate) {
-        return meetingRepository.findMeetingsByRoomAndDateRange(roomId, startDate, endDate).stream()
-                .map(meetingMapper::toMeetingResponse)
-                .toList();
+        participant.setStatus(status);
+        participant.setRespondedAt(LocalDateTime.now());
+        participantRepository.save(participant);
     }
 
     /* ====================== PRIVATE HELPERS ====================== */
+    private void validateMeetingTime(LocalTime start, LocalTime end) {
+        if (end.isBefore(start) || end.equals(start)) {
+            throw new AppException(ErrorStatus.MEETING_END_BEFORE_START);
+        }
+
+        boolean morning = !start.isBefore(MORNING_START) && !end.isAfter(MORNING_END);
+        boolean afternoon = !start.isBefore(AFTERNOON_START) && !end.isAfter(EVENING_END);
+
+        if (!(morning || afternoon)) {
+            throw new AppException(ErrorStatus.MEETING_INVALID_TIME_RANGE);
+        }
+    }
+
+    private void validateRoomAvailability(String roomId, LocalDateTime start, LocalDateTime end, String excludeId) {
+        List<Meeting> conflicts = meetingRepository.findConflictingMeetings(roomId, start, end);
+        if (!conflicts.isEmpty()) {
+            throw new AppException(ErrorStatus.MEETING_ROOM_NOT_AVAILABLE);
+        }
+    }
+
     private void assignDefaultRoomDevices(Meeting meeting) {
         roomDeviceRepository.findByMeetingRoomId(meeting.getMeetingRoom().getId())
                 .stream()
@@ -365,7 +617,7 @@ public class MeetingService {
                             .notes("Auto-assigned from room")
                             .build();
                     meetingDeviceRepository.save(md);
-                    meeting.getDevices().add(md);
+                    meeting.addDevice(md);
                 });
     }
 
@@ -405,16 +657,11 @@ public class MeetingService {
     private void borrowAdditionalDevice(Meeting meeting, DeviceBorrowRequest req) {
         Device device = deviceRepository.findById(req.getDeviceId())
                 .orElseThrow(() -> new AppException(ErrorStatus.DEVICE_NOT_FOUND));
-        if (device.getStatus() != DeviceStatus.ACTIVE)
+
+        if (device.getStatus() != DeviceStatus.ACTIVE) {
             throw new AppException(ErrorStatus.DEVICE_NOT_ACTIVE);
+        }
 
-        boolean alreadyInRoom = roomDeviceRepository.existsByMeetingRoomIdAndDeviceId(
-                meeting.getMeetingRoom().getId(), req.getDeviceId());
-        if (alreadyInRoom)
-            throw new AppException(ErrorStatus.DEVICE_ALREADY_IN_USE_IN_ROOM);
-
-        int reserved = meetingDeviceRepository.getTotalReservedQuantity(
-                req.getDeviceId(), meeting.getStartTime(), meeting.getEndTime());
         if (device.getAvailableQuantity() < req.getQuantity()) {
             throw new AppException(ErrorStatus.INSUFFICIENT_QUANTITY);
         }
@@ -423,11 +670,14 @@ public class MeetingService {
         deviceRepository.save(device);
 
         MeetingDevice md = MeetingDevice.builder()
-                .meeting(meeting).device(device).quantity(req.getQuantity())
-                .status(MeetingDeviceStatus.RESERVED).notes(req.getNotes())
+                .meeting(meeting)
+                .device(device)
+                .quantity(req.getQuantity())
+                .status(MeetingDeviceStatus.RESERVED)
+                .notes(req.getNotes())
                 .build();
         meetingDeviceRepository.save(md);
-        meeting.getDevices().add(md);
+        meeting.addDevice(md);
     }
 
     private void updateBorrowedDevices(Meeting meeting, List<DeviceBorrowRequest> newList) {
@@ -447,23 +697,10 @@ public class MeetingService {
         newList.forEach(req -> borrowAdditionalDevice(meeting, req));
     }
 
-    private void returnBorrowedDevices(Meeting meeting) {
-        meeting.getDevices().stream()
-                .filter(md -> !roomDeviceRepository.existsByMeetingRoomIdAndDeviceId(
-                        meeting.getMeetingRoom().getId(), md.getDevice().getId()))
-                .forEach(md -> {
-                    Device d = md.getDevice();
-                    d.setAvailableQuantity(d.getAvailableQuantity() + md.getQuantity());
-                    deviceRepository.save(d);
-                });
-    }
-
     private void updateParticipants(Meeting meeting, List<ParticipantRequest> requests, UUID creatorId) {
-
         participantRepository.deleteByMeetingId(meeting.getId());
         meeting.getParticipants().clear();
 
-        // ✅ CHẶN MỜI CREATOR (lọc im lặng trước khi thêm)
         if (requests != null) {
             String creatorEmail = meeting.getCreator().getEmail();
             requests = requests.stream()
@@ -475,138 +712,38 @@ public class MeetingService {
         addParticipantsByEmail(meeting, requests, creatorId);
     }
 
+    private void returnBorrowedDevices(Meeting meeting) {
+        meeting.getDevices().stream()
+                .filter(md -> !roomDeviceRepository.existsByMeetingRoomIdAndDeviceId(
+                        meeting.getMeetingRoom().getId(), md.getDevice().getId()))
+                .forEach(md -> {
+                    Device d = md.getDevice();
+                    d.setAvailableQuantity(d.getAvailableQuantity() + md.getQuantity());
+                    deviceRepository.save(d);
+                });
+    }
+
     private boolean hasAccess(Meeting meeting, UUID userId) {
         return meeting.getCreator().getId().equals(userId) ||
                 participantRepository.existsByMeetingIdAndUserId(meeting.getId(), userId);
     }
 
-    private void validateMeetingTime(LocalDateTime start, LocalDateTime end) {
-        if (end.isBefore(start) || end.isEqual(start))
-            throw new AppException(ErrorStatus.MEETING_END_BEFORE_START);
-        LocalTime st = start.toLocalTime(), et = end.toLocalTime();
-        boolean morning = !st.isBefore(MORNING_START) && !et.isAfter(MORNING_END);
-        boolean afternoon = !st.isBefore(AFTERNOON_START) && !et.isAfter(EVENING_END);
-        if (!(morning || afternoon))
-            throw new AppException(ErrorStatus.MEETING_INVALID_TIME_RANGE);
-    }
-
-    private void validateRoomAvailability(String roomId, LocalDateTime start, LocalDateTime end, String excludeId) {
-        List<Meeting> conflicts = excludeId == null
-                ? meetingRepository.findConflictingMeetings(roomId, start, end)
-                : meetingRepository.findConflictingMeetingsExcludingCurrent(roomId, excludeId, start, end);
-        if (!conflicts.isEmpty())
-            throw new AppException(ErrorStatus.MEETING_ROOM_NOT_AVAILABLE);
-    }
-
-    @Transactional
-    public void updateParticipantStatusByEmailAndMeeting(String email, String meetingId, ParticipantStatus status) {
-        MeetingParticipant participant = participantRepository
-                .findByMeetingIdAndUserEmail(meetingId, email)
-                .orElseThrow(
-                        () -> new AppException(ErrorStatus.PARTICIPANT_NOT_FOUND, "Invitation not found or invalid"));
-
-        if (participant.getStatus() != ParticipantStatus.PENDING) {
-            throw new AppException(ErrorStatus.FORBIDDEN, "This invitation has already been responded to");
-        }
-
-        if (status != ParticipantStatus.ACCEPTED && status != ParticipantStatus.DECLINED) {
-            throw new AppException(ErrorStatus.INVALID_INPUT, "Status must be ACCEPTED or DECLINED");
-        }
-
-        participant.setStatus(status);
-        participant.setRespondedAt(LocalDateTime.now());
-        participantRepository.save(participant);
-    }
-
-    public List<Meeting> getPendingMeetings() {
-        return meetingRepository.findByStatus(MeetingStatus.PENDING_APPROVAL);
-    }
-
-    @Transactional
-    public Meeting approveMeeting(String id) {
-        Meeting meeting = meetingRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
-
-        meeting.setStatus(MeetingStatus.SCHEDULED);
-        Meeting savedMeeting = meetingRepository.save(meeting);
-
-        UUID creatorId = savedMeeting.getCreator().getId();
+    private String convertListToJson(List<String> list) {
         try {
-            if (googleCalendarService.isConnected(creatorId)) {
-                // If you already have syncMeetingToGoogle, use it:
-                googleCalendarService.syncMeetingToGoogle(savedMeeting, creatorId);
-
-                // Alternatively (if you want direct create/update):
-                // String token = savedMeeting.getCreator().getAccessToken();
-                // if (token != null && !token.isEmpty()) {
-                // if (savedMeeting.getGoogleEventId() == null) {
-                // String eventId = googleCalendarService.createGoogleEvent(savedMeeting,
-                // token);
-                // savedMeeting.setGoogleEventId(eventId);
-                // meetingRepository.save(savedMeeting);
-                // } else {
-                // googleCalendarService.updateGoogleEvent(savedMeeting.getGoogleEventId(),
-                // savedMeeting, token);
-                // }
-                // }
-            } else {
-                log.info("Creator {} has not connected Google Calendar. Skipping sync.", creatorId);
-            }
+            return objectMapper.writeValueAsString(list);
         } catch (Exception e) {
-            log.warn("Failed to sync meeting {} to Google Calendar after approval", savedMeeting.getId(), e);
+            log.error("Error converting list to JSON", e);
+            return "[]";
         }
-
-        // Lấy tất cả cuộc họp PENDING_APPROVAL trong cùng phòng, cùng thời gian
-        List<Meeting> conflictingPendingMeetings = meetingRepository
-                .findConflictingPendingMeetings(
-                        meeting.getMeetingRoom().getId(),
-                        meeting.getStartTime(),
-                        meeting.getEndTime(),
-                        id);
-
-        // Hủy tất cả các cuộc họp khác
-        conflictingPendingMeetings.forEach(conflictMeeting -> {
-            conflictMeeting.setStatus(MeetingStatus.CANCELLED);
-            conflictMeeting.setCancelledAt(LocalDateTime.now());
-            conflictMeeting.setCancellationReason("Cancelled due to conflicting approved meeting");
-            meetingRepository.save(conflictMeeting);
-
-            // Gửi email thông báo hủy cho creator và participants
-            emailService.sendCancelMeetingEmail(conflictMeeting.getCreator().getEmail(), conflictMeeting);
-            for (MeetingParticipant participant : conflictMeeting.getParticipants()) {
-                emailService.sendCancelMeetingEmail(participant.getUser().getEmail(), conflictMeeting);
-            }
-        });
-
-        return savedMeeting;
     }
 
-    @Transactional
-    public Meeting rejectMeeting(String id) {
-        Meeting meeting = meetingRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
+    @Transactional(readOnly = true)
+    public List<MeetingResponse> getScheduledActiveMeetingsInRoom(String roomId, UUID currentUserId) {
+        List<Meeting> meetings = meetingRepository.findScheduledActiveMeetingsInRoom(roomId);
 
-        meeting.setStatus(MeetingStatus.CANCELLED);
-        return meetingRepository.save(meeting);
+        return meetings.stream()
+                .map(meeting -> meetingMapper.toMeetingResponse(meeting))
+                .collect(Collectors.toList());
     }
 
-    public Page<MeetingResponse> getAllMeetings(int page, int size, String sortBy, String direction) {
-        Pageable pageable = PageRequest.of(page, size,
-                direction.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
-
-        Page<Meeting> meetings = meetingRepository.findAll(pageable);
-        return meetings.map(meetingMapper::toMeetingResponse);
-    }
-
-    public boolean isRoomAvailable(String roomId, String date, String start, String end) {
-        DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
-
-        String startIso = date + "T" + start; // ví dụ: "2025-12-09T07:36"
-        String endIso = date + "T" + end;
-
-        LocalDateTime startDateTime = LocalDateTime.parse(startIso, f);
-        LocalDateTime endDateTime = LocalDateTime.parse(endIso, f);
-
-        return !meetingRepository.existsConflict(roomId, startDateTime, endDateTime);
-    }
 }

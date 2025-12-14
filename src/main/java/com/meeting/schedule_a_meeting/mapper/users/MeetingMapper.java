@@ -1,35 +1,46 @@
 package com.meeting.schedule_a_meeting.mapper.users;
 
-
-import com.meeting.schedule_a_meeting.dto.response.users.meeting.*;
-import com.meeting.schedule_a_meeting.entities.*;
-import org.mapstruct.Mapper;
-
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.stream.Collectors;
+
+import org.mapstruct.Mapper;
+
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.DeviceResponse;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.DeviceSummary;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.MeetingResponse;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.ParticipantResponse;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.RoomSummary;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.UserSummary;
+import com.meeting.schedule_a_meeting.entities.Device;
+import com.meeting.schedule_a_meeting.entities.Meeting;
+import com.meeting.schedule_a_meeting.entities.MeetingDevice;
+import com.meeting.schedule_a_meeting.entities.MeetingParticipant;
+import com.meeting.schedule_a_meeting.entities.MeetingRoom;
+import com.meeting.schedule_a_meeting.entities.Users;
 
 @Mapper(componentModel = "spring")
 public class MeetingMapper {
 
     public MeetingResponse toMeetingResponse(Meeting meeting) {
-        if (meeting == null) return null;
+        if (meeting == null)
+            return null;
         boolean hasConcluded = meeting.getEndTime() != null &&
                 meeting.getEndTime().isBefore(LocalDateTime.now());
 
         // Lớp an toàn: loại creator khỏi response participants
         var participants = meeting.getParticipants() != null
                 ? meeting.getParticipants().stream()
-                .filter(mp -> mp.getUser() != null
-                        && !mp.getUser().getId().equals(meeting.getCreator().getId())) // ⛔ exclude creator
-                .map(this::toParticipantResponse)
-                .collect(Collectors.toList())
+                        .filter(mp -> mp.getUser() != null
+                                && !mp.getUser().getId().equals(meeting.getCreator().getId())) // ⛔ exclude creator
+                        .map(this::toParticipantResponse)
+                        .collect(Collectors.toList())
                 : Collections.<ParticipantResponse>emptyList();
 
         var devices = meeting.getDevices() != null
                 ? meeting.getDevices().stream()
-                .map(this::toDeviceResponse)
-                .collect(Collectors.toList())
+                        .map(this::toDeviceResponse)
+                        .collect(Collectors.toList())
                 : Collections.<DeviceResponse>emptyList();
 
         return MeetingResponse.builder()
@@ -39,6 +50,7 @@ public class MeetingMapper {
                 .startTime(meeting.getStartTime())
                 .endTime(meeting.getEndTime())
                 .status(meeting.getStatus())
+                .isRepeat(meeting.isRepeat())
                 .room(toRoomSummary(meeting.getMeetingRoom()))
                 .creator(toUserSummary(meeting.getCreator()))
                 .participants(participants)
@@ -116,4 +128,3 @@ public class MeetingMapper {
                 .build();
     }
 }
-

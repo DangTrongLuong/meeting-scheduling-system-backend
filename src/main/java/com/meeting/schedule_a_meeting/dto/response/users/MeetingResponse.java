@@ -1,8 +1,13 @@
 package com.meeting.schedule_a_meeting.dto.response.users;
 
-import lombok.*;
 import java.time.LocalDateTime;
 import java.util.List;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
 @Setter
@@ -18,6 +23,7 @@ public class MeetingResponse {
     private String roomName;
     private String createdBy;
     private String status;
+    private boolean isRepeat;
     private List<String> invitedEmails;
 
 }

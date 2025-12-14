@@ -1,16 +1,17 @@
 package com.meeting.schedule_a_meeting.repositories.meeting;
 
-import com.meeting.schedule_a_meeting.entities.Meeting;
-import com.meeting.schedule_a_meeting.enums.MeetingStatus;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import com.meeting.schedule_a_meeting.entities.Meeting;
+import com.meeting.schedule_a_meeting.enums.MeetingStatus;
 
 @Repository
 public interface MeetingRepository extends JpaRepository<Meeting, String> {
@@ -38,6 +39,13 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
             ORDER BY m.startTime DESC
             """)
     List<Meeting> findMyMeetings(@Param("userId") UUID userId);
+
+    @Query("SELECT m FROM Meeting m WHERE m.repeatGroupId = :repeatGroupId")
+    List<Meeting> findByRepeatGroupId(@Param("repeatGroupId") String repeatGroupId);
+
+    // Tìm pending meetings cùng repeat group
+    @Query("SELECT m FROM Meeting m WHERE m.repeatGroupId = :repeatGroupId AND m.status = 'PENDING_APPROVAL'")
+    List<Meeting> findPendingMeetingsByRepeatGroupId(@Param("repeatGroupId") String repeatGroupId);
 
     // Kiểm tra xung đột thời gian cho cùng phòng
     @Query("SELECT m FROM Meeting m WHERE m.meetingRoom.id = :roomId " +
@@ -125,18 +133,28 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
     List<Meeting> findByStatus(MeetingStatus status);
 
     @Query("""
-    SELECT COUNT(m) > 0
-    FROM Meeting m
-    WHERE m.meetingRoom.id = :roomId
-    AND (
-        m.startTime < :endTime
-        AND m.endTime   > :startTime
-    )
-""")
+                SELECT COUNT(m) > 0
+                FROM Meeting m
+                WHERE m.meetingRoom.id = :roomId
+                AND (
+                    m.startTime < :endTime
+                    AND m.endTime   > :startTime
+                )
+            """)
     boolean existsConflict(
             @Param("roomId") String roomId,
             @Param("startTime") LocalDateTime startTime,
-            @Param("endTime") LocalDateTime endTime
-    );
+            @Param("endTime") LocalDateTime endTime);
+
+    @Query("SELECT m FROM Meeting m " +
+            "LEFT JOIN FETCH m.meetingRoom " +
+            "LEFT JOIN FETCH m.creator " +
+            "LEFT JOIN FETCH m.participants p " +
+            "LEFT JOIN FETCH p.user " +
+            "WHERE m.meetingRoom.id = :roomId " +
+            "AND m.status = 'SCHEDULED' " +
+            "AND m.endTime >= CURRENT_TIMESTAMP " +
+            "ORDER BY m.startTime ASC")
+    List<Meeting> findScheduledActiveMeetingsInRoom(@Param("roomId") String roomId);
 
 }
