@@ -1,8 +1,37 @@
 package com.meeting.schedule_a_meeting.controllers.users;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.meeting.schedule_a_meeting.dto.request.users.meetting.CreateMeetingRequest;
 import com.meeting.schedule_a_meeting.dto.request.users.meetting.UpdateMeetingRequest;
-import com.meeting.schedule_a_meeting.dto.response.users.meeting.*;
+import com.meeting.schedule_a_meeting.dto.response.admin.MeetingRoomResponse;
+import com.meeting.schedule_a_meeting.dto.response.admin.RoomDeviceResponse;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.ApiResponse;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.DeviceResponse;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.MeetingResponse;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.UserSummary;
 import com.meeting.schedule_a_meeting.enums.ErrorStatus;
 import com.meeting.schedule_a_meeting.enums.ParticipantStatus;
 import com.meeting.schedule_a_meeting.exception.AppException;
@@ -10,27 +39,8 @@ import com.meeting.schedule_a_meeting.mapper.users.MeetingMapper;
 import com.meeting.schedule_a_meeting.service.admin.MeetingRoomService;
 import com.meeting.schedule_a_meeting.service.users.MeetingService;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.data.domain.Page;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.time.LocalDateTime;
-import java.time.format.DateTimeParseException;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-
-import com.meeting.schedule_a_meeting.dto.response.admin.MeetingRoomResponse;
-import com.meeting.schedule_a_meeting.dto.response.admin.RoomDeviceResponse;
 
 @RestController
 @RequestMapping("/api/meetings")
@@ -58,7 +68,6 @@ public class MeetingController {
                 .body(ApiResponse.created("Meeting created successfully", response));
     }
 
-
     @GetMapping("/getAllMeetings")
     public ResponseEntity<ApiResponse<Page<MeetingResponse>>> getAllMeetings(
             @RequestParam(defaultValue = "0") int page,
@@ -69,7 +78,6 @@ public class MeetingController {
         Page<MeetingResponse> response = meetingService.getAllMeetings(page, size, sortBy, direction);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
-
 
     @GetMapping("/{meetingId}")
     public ResponseEntity<ApiResponse<MeetingResponse>> getMeetingById(
@@ -132,22 +140,18 @@ public class MeetingController {
             @PathVariable String roomId,
             @RequestParam String date,
             @RequestParam String start,
-            @RequestParam String end
-    ) {
+            @RequestParam String end) {
         try {
             boolean available = meetingService.isRoomAvailable(roomId, date, start, end);
 
             return ResponseEntity.ok(
                     Map.of(
                             "available", available,
-                            "roomId", roomId
-                    )
-            );
+                            "roomId", roomId));
         } catch (DateTimeParseException ex) {
             // Bad request nếu thời gian gửi lên sai format
             return ResponseEntity.badRequest().body(
-                    Map.of("error", "Invalid date/time format. Expected date=yyyy-MM-dd, start/end=HH:mm")
-            );
+                    Map.of("error", "Invalid date/time format. Expected date=yyyy-MM-dd, start/end=HH:mm"));
         } catch (Exception ex) {
             // log and return 500 for unexpected errors
             log.error("checkAvailability error", ex);
@@ -156,6 +160,20 @@ public class MeetingController {
         }
     }
 
+    @GetMapping("/room/{roomId}/scheduled-active")
+    public ResponseEntity<ApiResponse<List<MeetingResponse>>> getScheduledActiveMeetingsInRoom(
+            @PathVariable String roomId,
+            @RequestHeader("userId") UUID userId) {
+
+        List<MeetingResponse> response = meetingService.getScheduledActiveMeetingsInRoom(roomId, userId);
+
+        return ResponseEntity.ok(
+                ApiResponse.<List<MeetingResponse>>builder()
+                        .code(200)
+                        .message("Scheduled active meetings in room retrieved successfully")
+                        .data(response)
+                        .build());
+    }
 
     @PutMapping("/{meetingId}")
     public ResponseEntity<ApiResponse<MeetingResponse>> updateMeeting(
@@ -289,7 +307,6 @@ public class MeetingController {
 
         return ResponseEntity.ok(ApiResponse.success(message));
     }
-
 
     @GetMapping("/pending")
     public ResponseEntity<ApiResponse<List<MeetingResponse>>> getPendingMeetings() {

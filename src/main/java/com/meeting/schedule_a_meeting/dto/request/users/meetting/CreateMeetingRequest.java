@@ -1,11 +1,16 @@
 package com.meeting.schedule_a_meeting.dto.request.users.meetting;
 
-import jakarta.validation.constraints.*;
-import lombok.*;
-import com.meeting.schedule_a_meeting.dto.request.users.meetting.DeviceBorrowRequest;
-
-import java.time.LocalDateTime;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
@@ -18,15 +23,20 @@ public class CreateMeetingRequest {
     private String title;
 
     private String description;
+    private String date;
 
     @NotNull(message = "Start time is required")
-    private LocalDateTime startTime;
+    private String startTime;
 
     @NotNull(message = "End time is required")
-    private LocalDateTime endTime;
+    private String endTime;
 
     @NotBlank(message = "Room ID is required")
     private String roomId;
+
+    @JsonProperty("isRepeat")
+    private boolean isRepeat;
+    private List<String> repeatDays;
 
     private List<ParticipantRequest> participants;
 

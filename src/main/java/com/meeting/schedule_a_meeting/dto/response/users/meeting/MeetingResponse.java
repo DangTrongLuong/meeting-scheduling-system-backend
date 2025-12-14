@@ -1,12 +1,20 @@
 package com.meeting.schedule_a_meeting.dto.response.users.meeting;
 
-import com.meeting.schedule_a_meeting.enums.MeetingStatus;
-import lombok.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Getter @Setter
-@NoArgsConstructor @AllArgsConstructor
+import com.meeting.schedule_a_meeting.enums.MeetingStatus;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class MeetingResponse {
     private String id;
@@ -15,6 +23,7 @@ public class MeetingResponse {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private MeetingStatus status;
+    private boolean isRepeat;
     private RoomSummary room;
     private UserSummary creator;
     private List<ParticipantResponse> participants;

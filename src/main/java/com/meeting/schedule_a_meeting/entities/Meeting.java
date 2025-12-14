@@ -1,20 +1,37 @@
 package com.meeting.schedule_a_meeting.entities;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
-import lombok.*;
-import com.meeting.schedule_a_meeting.enums.MeetingStatus;
-import com.meeting.schedule_a_meeting.util.IdGenerator;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.meeting.schedule_a_meeting.enums.MeetingStatus;
+import com.meeting.schedule_a_meeting.util.IdGenerator;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "meetings", indexes = {
@@ -85,6 +102,16 @@ public class Meeting {
 
     @Column(name = "created_by", nullable = false)
     private String createdBy;
+
+    @Column(name = "is_repeat", nullable = false)
+    @Builder.Default
+    private boolean isRepeat = false;
+
+    @Column(name = "repeat_group_id", length = 36)
+    private String repeatGroupId;
+
+    @Column(name = "repeat_days", length = 100)
+    private String repeatDays;
 
     @OneToMany(mappedBy = "meeting", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

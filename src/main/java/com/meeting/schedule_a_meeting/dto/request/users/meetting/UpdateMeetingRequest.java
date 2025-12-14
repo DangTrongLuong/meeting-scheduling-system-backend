@@ -1,11 +1,12 @@
 package com.meeting.schedule_a_meeting.dto.request.users.meetting;
 
-import jakarta.validation.constraints.Size;
-import lombok.*;
-import com.meeting.schedule_a_meeting.dto.request.users.meetting.DeviceBorrowRequest;
-
-import java.time.LocalDateTime;
 import java.util.List;
+
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
@@ -18,9 +19,9 @@ public class UpdateMeetingRequest {
 
     private String description;
 
-    private LocalDateTime startTime;
+    private String startTime;
 
-    private LocalDateTime endTime;
+    private String endTime;
 
     private String roomId;
 
