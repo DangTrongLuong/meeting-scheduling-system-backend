@@ -278,21 +278,23 @@ public class MeetingService {
 
         // Update time
         if (request.getStartTime() != null && request.getEndTime() != null) {
-            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
-            LocalTime startTime = LocalTime.parse(request.getStartTime(), timeFormatter);
-            LocalTime endTime = LocalTime.parse(request.getEndTime(), timeFormatter);
-            validateMeetingTime(startTime, endTime);
+            // Parse trực tiếp ISO_LOCAL_DATE_TIME (ví dụ: 2025-12-15T14:00:00)
+            LocalDateTime startDateTime = LocalDateTime.parse(request.getStartTime(), DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            LocalDateTime endDateTime = LocalDateTime.parse(request.getEndTime(), DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 
-            LocalDate meetingDate = meeting.getStartTime().toLocalDate();
-            LocalDateTime startDateTime = LocalDateTime.of(meetingDate, startTime);
-            LocalDateTime endDateTime = LocalDateTime.of(meetingDate, endTime);
+            // Validate thời gian (chỉ lấy phần giờ phút để kiểm tra logic buổi sáng/chiều)
+            validateMeetingTime(startDateTime.toLocalTime(), endDateTime.toLocalTime());
 
+            // Kiểm tra room availability
             validateRoomAvailability(
                     request.getRoomId() != null ? request.getRoomId() : meeting.getMeetingRoom().getId(),
                     startDateTime, endDateTime, meetingId);
+
+            // Gán lại cho meeting
             meeting.setStartTime(startDateTime);
             meeting.setEndTime(endDateTime);
         }
+
 
         // Update room
         if (request.getRoomId() != null && !request.getRoomId().equals(meeting.getMeetingRoom().getId())) {

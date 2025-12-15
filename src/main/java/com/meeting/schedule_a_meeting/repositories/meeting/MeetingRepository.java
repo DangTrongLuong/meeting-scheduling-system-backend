@@ -153,7 +153,7 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
             "LEFT JOIN FETCH p.user " +
             "WHERE m.meetingRoom.id = :roomId " +
             "AND m.status = 'SCHEDULED' " +
-            "AND m.endTime >= CURRENT_TIMESTAMP " +
+//            "AND m.endTime >= CURRENT_TIMESTAMP " +
             "ORDER BY m.startTime ASC")
     List<Meeting> findScheduledActiveMeetingsInRoom(@Param("roomId") String roomId);
 
