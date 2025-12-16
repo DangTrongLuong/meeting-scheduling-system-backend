@@ -1,7 +1,6 @@
-package com.meeting.schedule_a_meeting.controllers.users;
+package com.meeting.schedule_a_meeting.controllers.users.call;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import com.meeting.schedule_a_meeting.dto.request.users.call.InitiateCallRequest;
