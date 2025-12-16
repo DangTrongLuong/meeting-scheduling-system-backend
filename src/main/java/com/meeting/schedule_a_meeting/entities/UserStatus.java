@@ -3,9 +3,8 @@ package com.meeting.schedule_a_meeting.entities;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.meeting.schedule_a_meeting.enums.UserStatusEnum;
 import org.hibernate.annotations.UpdateTimestamp;
-
-import com.meeting.schedule_a_meeting.enums.UserStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -26,7 +25,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserStatusEntity {
+public class UserStatus {
 
     @Id
     @Column(name = "user_id")
@@ -39,7 +38,7 @@ public class UserStatusEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     @Builder.Default
-    private UserStatus status = UserStatus.OFFLINE;
+    private UserStatusEnum status = UserStatusEnum.OFFLINE;
 
     @UpdateTimestamp
     @Column(name = "last_seen_at")
