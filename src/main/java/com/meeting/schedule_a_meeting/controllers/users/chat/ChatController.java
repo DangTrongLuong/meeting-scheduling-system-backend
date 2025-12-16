@@ -1,4 +1,4 @@
-package com.meeting.schedule_a_meeting.controllers.users;
+package com.meeting.schedule_a_meeting.controllers.users.chat;
 
 import java.util.List;
 import java.util.Map;
