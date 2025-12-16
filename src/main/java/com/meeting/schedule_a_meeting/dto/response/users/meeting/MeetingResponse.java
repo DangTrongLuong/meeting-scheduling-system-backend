@@ -31,4 +31,5 @@ public class MeetingResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean hasConcluded;
+    private String repeatSummary;
 }

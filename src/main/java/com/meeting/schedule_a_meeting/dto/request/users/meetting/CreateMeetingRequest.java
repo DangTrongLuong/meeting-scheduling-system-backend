@@ -36,7 +36,17 @@ public class CreateMeetingRequest {
 
     @JsonProperty("isRepeat")
     private boolean isRepeat;
+
     private List<String> repeatDays;
+
+    @JsonProperty("repeatType") // "DAILY", "WEEKLY", "CUSTOM" hoặc null
+    private String repeatType;
+
+    @JsonProperty("repeatWeeks") // số tuần lặp (1-36), chỉ dùng khi WEEKLY
+    private Integer repeatWeeks;
+
+    @JsonProperty("repeatEndAfterMonths") // 1 hoặc 2, chỉ dùng khi DAILY hoặc CUSTOM
+    private Integer repeatEndAfterMonths;
 
     private List<ParticipantRequest> participants;
 

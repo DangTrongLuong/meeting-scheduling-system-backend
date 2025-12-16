@@ -1,10 +1,12 @@
 package com.meeting.schedule_a_meeting.mapper.users;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.stream.Collectors;
 
-import org.mapstruct.Mapper;
+import org.springframework.stereotype.Component;
 
 import com.meeting.schedule_a_meeting.dto.response.users.meeting.DeviceResponse;
 import com.meeting.schedule_a_meeting.dto.response.users.meeting.DeviceSummary;
@@ -18,15 +20,43 @@ import com.meeting.schedule_a_meeting.entities.MeetingDevice;
 import com.meeting.schedule_a_meeting.entities.MeetingParticipant;
 import com.meeting.schedule_a_meeting.entities.MeetingRoom;
 import com.meeting.schedule_a_meeting.entities.Users;
+import com.meeting.schedule_a_meeting.repositories.meeting.MeetingRepository;
 
-@Mapper(componentModel = "spring")
+import lombok.RequiredArgsConstructor;
+
+@Component
+@RequiredArgsConstructor
 public class MeetingMapper {
+
+    private final MeetingRepository meetingRepository;
 
     public MeetingResponse toMeetingResponse(Meeting meeting) {
         if (meeting == null)
             return null;
         boolean hasConcluded = meeting.getEndTime() != null &&
                 meeting.getEndTime().isBefore(LocalDateTime.now());
+
+        String repeatSummary = null;
+        if (meeting.isRepeat() && meeting.getRepeatDays() != null && !meeting.getRepeatDays().isEmpty()) {
+            String[] days = meeting.getRepeatDays().split(",");
+            List<String> dayNames = Arrays.stream(days)
+                    .map(String::trim)
+                    .map(this::getVietnameseDayName)
+                    .collect(Collectors.toList());
+
+            if (days.length == 6 && Arrays.asList(days).containsAll(
+                    List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"))) {
+                repeatSummary = "Daily (Monday - Saturday)";
+            } else if (days.length == 1) {
+                // Là weekly: đếm số meeting trong group để biết lặp bao nhiêu tuần
+                long repeatCount = meeting.getRepeatGroupId() != null
+                        ? meetingRepository.countByRepeatGroupId(meeting.getRepeatGroupId())
+                        : 1;
+                repeatSummary = "Every Weeks (" + dayNames.get(0) + ") - " + repeatCount + " weeks";
+            } else {
+                repeatSummary = "Every " + String.join(", ", dayNames);
+            }
+        }
 
         // Lớp an toàn: loại creator khỏi response participants
         var participants = meeting.getParticipants() != null
@@ -126,5 +156,18 @@ public class MeetingMapper {
                 .name(device.getName())
                 .imagePath(device.getImagePath())
                 .build();
+    }
+
+    private String getVietnameseDayName(String englishDay) {
+        return switch (englishDay.toUpperCase()) {
+            case "MONDAY" -> "MONDAY";
+            case "TUESDAY" -> "TUESDAY";
+            case "WEDNESDAY" -> "WEDNESDAY";
+            case "THURSDAY" -> "THURSDAY";
+            case "FRIDAY" -> "FRIDAY";
+            case "SATURDAY" -> "SATURDAY";
+            case "SUNDAY" -> "SUNDAY";
+            default -> englishDay;
+        };
     }
 }
