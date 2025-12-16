@@ -1,4 +1,4 @@
-package com.meeting.schedule_a_meeting.repositories;
+package com.meeting.schedule_a_meeting.repositories.chat_call;
 
 
 import java.time.LocalDateTime;
@@ -12,7 +12,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.meeting.schedule_a_meeting.entities.CallSession;
-import com.meeting.schedule_a_meeting.enums.CallStatus;
 
 @Repository
 public interface CallSessionRepository extends JpaRepository<CallSession, UUID> {

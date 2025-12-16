@@ -1,4 +1,4 @@
-package com.meeting.schedule_a_meeting.repositories;
+package com.meeting.schedule_a_meeting.repositories.chat_call;
 
 import java.util.Optional;
 import java.util.UUID;
