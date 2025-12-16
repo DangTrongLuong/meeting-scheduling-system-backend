@@ -16,145 +16,148 @@ import com.meeting.schedule_a_meeting.enums.MeetingStatus;
 @Repository
 public interface MeetingRepository extends JpaRepository<Meeting, String> {
 
-    List<Meeting> findByCreatorId(UUID creatorId);
+        List<Meeting> findByCreatorId(UUID creatorId);
 
-    @Query("""
-            SELECT DISTINCT m FROM Meeting m
-            LEFT JOIN FETCH m.meetingRoom
-            LEFT JOIN FETCH m.creator
-            LEFT JOIN FETCH m.participants p
-            LEFT JOIN FETCH p.user
-            WHERE (
-                m.creator.id = :userId
-                OR (
-                    EXISTS (
-                        SELECT 1 FROM MeetingParticipant mp
-                        WHERE mp.meeting = m
-                        AND mp.user.id = :userId
-                        AND mp.status = 'ACCEPTED'
-                    )
-                )
-            )
-            AND m.status != 'CANCELLED'
-            ORDER BY m.startTime DESC
-            """)
-    List<Meeting> findMyMeetings(@Param("userId") UUID userId);
+        @Query("SELECT COUNT(m) FROM Meeting m WHERE m.repeatGroupId = :groupId")
+        long countByRepeatGroupId(@Param("groupId") String groupId);
 
-    @Query("SELECT m FROM Meeting m WHERE m.repeatGroupId = :repeatGroupId")
-    List<Meeting> findByRepeatGroupId(@Param("repeatGroupId") String repeatGroupId);
+        @Query("""
+                        SELECT DISTINCT m FROM Meeting m
+                        LEFT JOIN FETCH m.meetingRoom
+                        LEFT JOIN FETCH m.creator
+                        LEFT JOIN FETCH m.participants p
+                        LEFT JOIN FETCH p.user
+                        WHERE (
+                            m.creator.id = :userId
+                            OR (
+                                EXISTS (
+                                    SELECT 1 FROM MeetingParticipant mp
+                                    WHERE mp.meeting = m
+                                    AND mp.user.id = :userId
+                                    AND mp.status = 'ACCEPTED'
+                                )
+                            )
+                        )
+                        AND m.status != 'CANCELLED'
+                        ORDER BY m.startTime DESC
+                        """)
+        List<Meeting> findMyMeetings(@Param("userId") UUID userId);
 
-    // Tìm pending meetings cùng repeat group
-    @Query("SELECT m FROM Meeting m WHERE m.repeatGroupId = :repeatGroupId AND m.status = 'PENDING_APPROVAL'")
-    List<Meeting> findPendingMeetingsByRepeatGroupId(@Param("repeatGroupId") String repeatGroupId);
+        @Query("SELECT m FROM Meeting m WHERE m.repeatGroupId = :repeatGroupId")
+        List<Meeting> findByRepeatGroupId(@Param("repeatGroupId") String repeatGroupId);
 
-    // Kiểm tra xung đột thời gian cho cùng phòng
-    @Query("SELECT m FROM Meeting m WHERE m.meetingRoom.id = :roomId " +
-            "AND m.status = 'SCHEDULED' " +
-            "AND NOT (m.endTime <= :startTime OR m.startTime >= :endTime)")
-    List<Meeting> findConflictingMeetings(
-            @Param("roomId") String roomId,
-            @Param("startTime") LocalDateTime startTime,
-            @Param("endTime") LocalDateTime endTime);
+        // Tìm pending meetings cùng repeat group
+        @Query("SELECT m FROM Meeting m WHERE m.repeatGroupId = :repeatGroupId AND m.status = 'PENDING_APPROVAL'")
+        List<Meeting> findPendingMeetingsByRepeatGroupId(@Param("repeatGroupId") String repeatGroupId);
 
-    @Query("SELECT m FROM Meeting m WHERE m.meetingRoom.id = :roomId " +
-            "AND m.id != :meetingId " +
-            "AND m.status = 'SCHEDULED' " +
-            "AND NOT (m.endTime <= :startTime OR m.startTime >= :endTime)")
-    List<Meeting> findConflictingMeetingsExcludingCurrent(
-            @Param("roomId") String roomId,
-            @Param("meetingId") String meetingId,
-            @Param("startTime") LocalDateTime startTime,
-            @Param("endTime") LocalDateTime endTime);
+        // Kiểm tra xung đột thời gian cho cùng phòng
+        @Query("SELECT m FROM Meeting m WHERE m.meetingRoom.id = :roomId " +
+                        "AND m.status = 'SCHEDULED' " +
+                        "AND NOT (m.endTime <= :startTime OR m.startTime >= :endTime)")
+        List<Meeting> findConflictingMeetings(
+                        @Param("roomId") String roomId,
+                        @Param("startTime") LocalDateTime startTime,
+                        @Param("endTime") LocalDateTime endTime);
 
-    @Query("SELECT m FROM Meeting m WHERE m.meetingRoom.id = :roomId " +
-            "AND m.id != :meetingId " +
-            "AND m.status = 'PENDING_APPROVAL' " +
-            "AND NOT (m.endTime <= :startTime OR m.startTime >= :endTime)")
-    List<Meeting> findConflictingPendingMeetings(
-            @Param("roomId") String roomId,
-            @Param("startTime") LocalDateTime startTime,
-            @Param("endTime") LocalDateTime endTime,
-            @Param("meetingId") String meetingId);
+        @Query("SELECT m FROM Meeting m WHERE m.meetingRoom.id = :roomId " +
+                        "AND m.id != :meetingId " +
+                        "AND m.status = 'SCHEDULED' " +
+                        "AND NOT (m.endTime <= :startTime OR m.startTime >= :endTime)")
+        List<Meeting> findConflictingMeetingsExcludingCurrent(
+                        @Param("roomId") String roomId,
+                        @Param("meetingId") String meetingId,
+                        @Param("startTime") LocalDateTime startTime,
+                        @Param("endTime") LocalDateTime endTime);
 
-    @Query("""
-            SELECT DISTINCT m FROM Meeting m
-            LEFT JOIN FETCH m.meetingRoom
-            LEFT JOIN FETCH m.creator
-            LEFT JOIN FETCH m.participants p
-            LEFT JOIN FETCH p.user
-            WHERE (
-                m.creator.id = :userId
-                OR (
-                    EXISTS (
-                        SELECT 1 FROM MeetingParticipant mp
-                        WHERE mp.meeting = m
-                          AND mp.user.id = :userId
-                          AND mp.status = 'ACCEPTED'
-                    )
-                )
-            )
-            AND m.status != 'CANCELLED'
-            ORDER BY m.startTime DESC
-            """)
-    List<Meeting> findMeetingsByUser(@Param("userId") UUID userId);
+        @Query("SELECT m FROM Meeting m WHERE m.meetingRoom.id = :roomId " +
+                        "AND m.id != :meetingId " +
+                        "AND m.status = 'PENDING_APPROVAL' " +
+                        "AND NOT (m.endTime <= :startTime OR m.startTime >= :endTime)")
+        List<Meeting> findConflictingPendingMeetings(
+                        @Param("roomId") String roomId,
+                        @Param("startTime") LocalDateTime startTime,
+                        @Param("endTime") LocalDateTime endTime,
+                        @Param("meetingId") String meetingId);
 
-    @Query("SELECT m FROM Meeting m WHERE m.meetingRoom.id = :roomId " +
-            "AND m.status != 'CANCELLED' " +
-            "AND m.startTime >= :startDate " +
-            "AND m.endTime <= :endDate " +
-            "ORDER BY m.startTime ASC")
-    List<Meeting> findMeetingsByRoomAndDateRange(
-            @Param("roomId") String roomId,
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate);
+        @Query("""
+                        SELECT DISTINCT m FROM Meeting m
+                        LEFT JOIN FETCH m.meetingRoom
+                        LEFT JOIN FETCH m.creator
+                        LEFT JOIN FETCH m.participants p
+                        LEFT JOIN FETCH p.user
+                        WHERE (
+                            m.creator.id = :userId
+                            OR (
+                                EXISTS (
+                                    SELECT 1 FROM MeetingParticipant mp
+                                    WHERE mp.meeting = m
+                                      AND mp.user.id = :userId
+                                      AND mp.status = 'ACCEPTED'
+                                )
+                            )
+                        )
+                        AND m.status != 'CANCELLED'
+                        ORDER BY m.startTime DESC
+                        """)
+        List<Meeting> findMeetingsByUser(@Param("userId") UUID userId);
 
-    List<Meeting> findByCreatorIdOrderByStartTimeDesc(UUID creatorId);
+        @Query("SELECT m FROM Meeting m WHERE m.meetingRoom.id = :roomId " +
+                        "AND m.status != 'CANCELLED' " +
+                        "AND m.startTime >= :startDate " +
+                        "AND m.endTime <= :endDate " +
+                        "ORDER BY m.startTime ASC")
+        List<Meeting> findMeetingsByRoomAndDateRange(
+                        @Param("roomId") String roomId,
+                        @Param("startDate") LocalDateTime startDate,
+                        @Param("endDate") LocalDateTime endDate);
 
-    List<Meeting> findByStatusOrderByStartTimeAsc(MeetingStatus status);
+        List<Meeting> findByCreatorIdOrderByStartTimeDesc(UUID creatorId);
 
-    @Query("SELECT m FROM Meeting m LEFT JOIN FETCH m.participants p LEFT JOIN FETCH p.user WHERE m.id = :meetingId")
-    Optional<Meeting> findByIdWithParticipants(@Param("meetingId") String meetingId);
+        List<Meeting> findByStatusOrderByStartTimeAsc(MeetingStatus status);
 
-    @Query("SELECT m FROM Meeting m WHERE m.status = 'SCHEDULED' " +
-            "AND m.startTime BETWEEN :now AND :reminderTime")
-    List<Meeting> findUpcomingMeetingsForReminder(
-            @Param("now") LocalDateTime now,
-            @Param("reminderTime") LocalDateTime reminderTime);
+        @Query("SELECT m FROM Meeting m LEFT JOIN FETCH m.participants p LEFT JOIN FETCH p.user WHERE m.id = :meetingId")
+        Optional<Meeting> findByIdWithParticipants(@Param("meetingId") String meetingId);
 
-    @Query("""
-            SELECT m FROM Meeting m
-            JOIN FETCH m.creator
-            WHERE m.status = 'SCHEDULED'
-            AND m.startTime BETWEEN :now AND :reminderTime
-            """)
-    List<Meeting> findMeetingsForCreatorReminder(@Param("now") LocalDateTime now,
-            @Param("reminderTime") LocalDateTime reminderTime);
+        @Query("SELECT m FROM Meeting m WHERE m.status = 'SCHEDULED' " +
+                        "AND m.startTime BETWEEN :now AND :reminderTime")
+        List<Meeting> findUpcomingMeetingsForReminder(
+                        @Param("now") LocalDateTime now,
+                        @Param("reminderTime") LocalDateTime reminderTime);
 
-    List<Meeting> findByStatus(MeetingStatus status);
+        @Query("""
+                        SELECT m FROM Meeting m
+                        JOIN FETCH m.creator
+                        WHERE m.status = 'SCHEDULED'
+                        AND m.startTime BETWEEN :now AND :reminderTime
+                        """)
+        List<Meeting> findMeetingsForCreatorReminder(@Param("now") LocalDateTime now,
+                        @Param("reminderTime") LocalDateTime reminderTime);
 
-    @Query("""
-                SELECT COUNT(m) > 0
-                FROM Meeting m
-                WHERE m.meetingRoom.id = :roomId
-                AND (
-                    m.startTime < :endTime
-                    AND m.endTime   > :startTime
-                )
-            """)
-    boolean existsConflict(
-            @Param("roomId") String roomId,
-            @Param("startTime") LocalDateTime startTime,
-            @Param("endTime") LocalDateTime endTime);
+        List<Meeting> findByStatus(MeetingStatus status);
 
-    @Query("SELECT m FROM Meeting m " +
-            "LEFT JOIN FETCH m.meetingRoom " +
-            "LEFT JOIN FETCH m.creator " +
-            "LEFT JOIN FETCH m.participants p " +
-            "LEFT JOIN FETCH p.user " +
-            "WHERE m.meetingRoom.id = :roomId " +
-            "AND m.status = 'SCHEDULED' " +
-//            "AND m.endTime >= CURRENT_TIMESTAMP " +
-            "ORDER BY m.startTime ASC")
-    List<Meeting> findScheduledActiveMeetingsInRoom(@Param("roomId") String roomId);
+        @Query("""
+                            SELECT COUNT(m) > 0
+                            FROM Meeting m
+                            WHERE m.meetingRoom.id = :roomId
+                            AND (
+                                m.startTime < :endTime
+                                AND m.endTime   > :startTime
+                            )
+                        """)
+        boolean existsConflict(
+                        @Param("roomId") String roomId,
+                        @Param("startTime") LocalDateTime startTime,
+                        @Param("endTime") LocalDateTime endTime);
+
+        @Query("SELECT m FROM Meeting m " +
+                        "LEFT JOIN FETCH m.meetingRoom " +
+                        "LEFT JOIN FETCH m.creator " +
+                        "LEFT JOIN FETCH m.participants p " +
+                        "LEFT JOIN FETCH p.user " +
+                        "WHERE m.meetingRoom.id = :roomId " +
+                        "AND m.status = 'SCHEDULED' " +
+                        // "AND m.endTime >= CURRENT_TIMESTAMP " +
+                        "ORDER BY m.startTime ASC")
+        List<Meeting> findScheduledActiveMeetingsInRoom(@Param("roomId") String roomId);
 
 }

@@ -6,7 +6,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -78,14 +80,17 @@ public class MeetingService {
     /* ====================== CREATE MEETING ====================== */
     @Transactional
     public MeetingResponse createMeeting(CreateMeetingRequest request, UUID creatorId) {
-        log.info("=== CREATE MEETING REQUEST ===");
+        log.info("=== CREATE MEETING REQUEST (WITH REPEAT SUPPORT) ===");
         log.info("Title: {}", request.getTitle());
         log.info("Date: {}", request.getDate());
         log.info("StartTime: {}, EndTime: {}", request.getStartTime(), request.getEndTime());
-        log.info("IsRepeat: {}, RepeatDays: {}", request.isRepeat(), request.getRepeatDays());
         log.info("RoomId: {}", request.getRoomId());
+        log.info("RepeatType: {}", request.getRepeatType());
+        log.info("RepeatWeeks: {}", request.getRepeatWeeks());
+        log.info("RepeatEndAfterMonths: {}", request.getRepeatEndAfterMonths());
+        log.info("RepeatDays: {}", request.getRepeatDays());
 
-        // Validate input
+        // Validation cơ bản (giữ nguyên logic cũ của bạn)
         if (request.getDate() == null || request.getDate().isEmpty()) {
             throw new AppException(ErrorStatus.INVALID_INPUT, "Date is required");
         }
@@ -96,12 +101,9 @@ public class MeetingService {
             throw new AppException(ErrorStatus.INVALID_INPUT, "End time is required");
         }
 
-        // Parse time từ HH:mm format
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
         LocalTime startTime = LocalTime.parse(request.getStartTime(), timeFormatter);
         LocalTime endTime = LocalTime.parse(request.getEndTime(), timeFormatter);
-
-        // Validate meeting time
         validateMeetingTime(startTime, endTime);
 
         Users creator = userRepository.findById(creatorId)
@@ -110,30 +112,124 @@ public class MeetingService {
         MeetingRoom room = meetingRoomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new AppException(ErrorStatus.ROOM_NOT_FOUND));
 
+        LocalDate baseDate = LocalDate.parse(request.getDate());
+
+        // Xử lý repeat
+        String repeatType = request.getRepeatType();
+        boolean isRepeat = repeatType != null &&
+                Set.of("DAILY", "WEEKLY", "CUSTOM").contains(repeatType.toUpperCase());
+
+        String repeatGroupId = isRepeat ? UUID.randomUUID().toString() : null;
+        List<String> daysToRepeat = null;
+        LocalDate seriesEndDate = null;
+
+        if (isRepeat) {
+            switch (repeatType.toUpperCase()) {
+                case "DAILY":
+                    daysToRepeat = List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY");
+                    Integer monthsDaily = request.getRepeatEndAfterMonths();
+                    if (monthsDaily == null || monthsDaily < 1 || monthsDaily > 2) {
+                        throw new AppException(ErrorStatus.INVALID_INPUT, "Daily repeat must end after 1 or 2 months");
+                    }
+                    seriesEndDate = baseDate.plusMonths(monthsDaily).minusDays(1);
+                    break;
+
+                case "WEEKLY":
+                    Integer weeks = request.getRepeatWeeks();
+                    if (weeks == null || weeks < 1 || weeks > 36) {
+                        throw new AppException(ErrorStatus.INVALID_INPUT,
+                                "Weekly repeat must be between 1 and 36 weeks");
+                    }
+                    daysToRepeat = List.of(baseDate.getDayOfWeek().name());
+                    seriesEndDate = baseDate.plusWeeks(weeks).minusDays(1);
+                    break;
+
+                case "CUSTOM":
+                    if (request.getRepeatDays() == null || request.getRepeatDays().isEmpty()) {
+                        throw new AppException(ErrorStatus.INVALID_INPUT,
+                                "At least one day must be selected for custom repeat");
+                    }
+                    daysToRepeat = new ArrayList<>(request.getRepeatDays());
+                    Integer monthsCustom = request.getRepeatEndAfterMonths();
+                    if (monthsCustom == null || monthsCustom < 1 || monthsCustom > 2) {
+                        throw new AppException(ErrorStatus.INVALID_INPUT, "Custom repeat must end after 1 or 2 months");
+                    }
+                    seriesEndDate = baseDate.plusMonths(monthsCustom).minusDays(1);
+                    break;
+
+                default:
+                    isRepeat = false; // fallback an toàn
+            }
+        }
+
+        // Tính danh sách các ngày cần tạo meeting
+        List<LocalDate> targetDates = new ArrayList<>();
+        if (isRepeat && seriesEndDate != null) {
+            LocalDate current = baseDate;
+            while (!current.isAfter(seriesEndDate)) {
+                if (daysToRepeat.contains(current.getDayOfWeek().name())) {
+                    targetDates.add(current);
+                }
+                current = current.plusDays(1);
+            }
+        } else {
+            targetDates.add(baseDate);
+        }
+
+        if (targetDates.isEmpty()) {
+            throw new AppException(ErrorStatus.INVALID_INPUT, "No valid dates generated for the meeting");
+        }
+
+        log.info("Generating {} meetings on dates: {}", targetDates.size(), targetDates);
+
         List<Meeting> createdMeetings = new ArrayList<>();
 
-        log.info("About to create meetings - isRepeat: {}, repeatDays count: {}",
-                request.isRepeat(), request.getRepeatDays() != null ? request.getRepeatDays().size() : 0);
+        for (LocalDate date : targetDates) {
+            LocalDateTime startDateTime = LocalDateTime.of(date, startTime);
+            LocalDateTime endDateTime = LocalDateTime.of(date, endTime);
 
-        if (request.isRepeat() && request.getRepeatDays() != null && !request.getRepeatDays().isEmpty()) {
-            // Tạo repeat meetings (1 cho mỗi ngày)
-            log.info("Creating repeat meetings for days: {}", request.getRepeatDays());
-            createdMeetings = createRepeatMeetings(request, creator, room, startTime, endTime);
-        } else {
-            // Tạo single meeting
-            log.info("Creating single meeting (isRepeat={}, repeatDays={})",
-                    request.isRepeat(), request.getRepeatDays());
-            Meeting meeting = createSingleMeeting(request, creator, room, startTime, endTime);
+            // Kiểm tra xung đột phòng
+            List<Meeting> conflicts = meetingRepository.findConflictingMeetings(
+                    room.getId(), startDateTime, endDateTime);
+
+            if (!conflicts.isEmpty()) {
+                throw new AppException(ErrorStatus.MEETING_ROOM_NOT_AVAILABLE,
+                        "Room not available on " + date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+            }
+
+            Meeting meeting = Meeting.builder()
+                    .title(request.getTitle())
+                    .description(request.getDescription())
+                    .startTime(startDateTime)
+                    .endTime(endDateTime)
+                    .meetingRoom(room)
+                    .creator(creator)
+                    .createdBy(creator.getEmail())
+                    .status(MeetingStatus.PENDING_APPROVAL)
+                    .isRepeat(isRepeat)
+                    .repeatGroupId(repeatGroupId)
+                    .repeatDays(daysToRepeat != null ? String.join(",", daysToRepeat) : null)
+                    .build();
+
+            meetingRepository.save(meeting);
+
+            assignDefaultRoomDevices(meeting);
+
+            addParticipantsByEmail(meeting, request.getParticipants(), creatorId);
+
+            if (request.getBorrowedDevices() != null && !request.getBorrowedDevices().isEmpty()) {
+                for (DeviceBorrowRequest deviceReq : request.getBorrowedDevices()) {
+                    borrowAdditionalDevice(meeting, deviceReq);
+                }
+            }
+
             createdMeetings.add(meeting);
         }
 
-        log.info("Total meetings created: {}", createdMeetings.size());
+        log.info("Successfully created {} meeting(s) with groupId: {}", createdMeetings.size(), repeatGroupId);
 
-        // Fetch first meeting để return
-        Meeting firstMeeting = meetingRepository.findById(createdMeetings.get(0).getId())
-                .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
-
-        return meetingMapper.toMeetingResponse(firstMeeting);
+        // Trả về meeting đầu tiên (ngày gốc)
+        return meetingMapper.toMeetingResponse(createdMeetings.get(0));
     }
 
     /**
@@ -279,8 +375,10 @@ public class MeetingService {
         // Update time
         if (request.getStartTime() != null && request.getEndTime() != null) {
             // Parse trực tiếp ISO_LOCAL_DATE_TIME (ví dụ: 2025-12-15T14:00:00)
-            LocalDateTime startDateTime = LocalDateTime.parse(request.getStartTime(), DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-            LocalDateTime endDateTime = LocalDateTime.parse(request.getEndTime(), DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            LocalDateTime startDateTime = LocalDateTime.parse(request.getStartTime(),
+                    DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            LocalDateTime endDateTime = LocalDateTime.parse(request.getEndTime(),
+                    DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 
             // Validate thời gian (chỉ lấy phần giờ phút để kiểm tra logic buổi sáng/chiều)
             validateMeetingTime(startDateTime.toLocalTime(), endDateTime.toLocalTime());
@@ -294,7 +392,6 @@ public class MeetingService {
             meeting.setStartTime(startDateTime);
             meeting.setEndTime(endDateTime);
         }
-
 
         // Update room
         if (request.getRoomId() != null && !request.getRoomId().equals(meeting.getMeetingRoom().getId())) {
@@ -388,51 +485,25 @@ public class MeetingService {
         Meeting meeting = meetingRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
 
-        if (meeting.getStatus() == MeetingStatus.CANCELLED) {
-            throw new AppException(ErrorStatus.MEETING_ALREADY_CANCELLED);
-        }
+        if (meeting.getRepeatGroupId() != null) {
+            log.info("Approving entire repeat series - groupId: {}", meeting.getRepeatGroupId());
+            List<Meeting> series = meetingRepository.findByRepeatGroupId(meeting.getRepeatGroupId());
 
-        meeting.setStatus(MeetingStatus.SCHEDULED);
-        Meeting savedMeeting = meetingRepository.save(meeting);
-        log.info("Meeting {} approved", id);
-
-        UUID creatorId = savedMeeting.getCreator().getId();
-
-        // Sync với Google Calendar
-        try {
-            if (googleCalendarService.isConnected(creatorId)) {
-                googleCalendarService.syncMeetingToGoogle(savedMeeting, creatorId);
-            } else {
-                log.info("Creator {} has not connected Google Calendar", creatorId);
-            }
-        } catch (Exception e) {
-            log.warn("Failed to sync meeting {} to Google Calendar", savedMeeting.getId(), e);
-        }
-
-        // Nếu là repeat meeting, approve tất cả meetings trong group
-        if (savedMeeting.isRepeat() && savedMeeting.getRepeatGroupId() != null) {
-            log.info("Approving all repeat meetings with group ID: {}", savedMeeting.getRepeatGroupId());
-            List<Meeting> groupMeetings = meetingRepository.findByRepeatGroupId(savedMeeting.getRepeatGroupId());
-
-            for (Meeting m : groupMeetings) {
-                if (!m.getId().equals(id) && m.getStatus() == MeetingStatus.PENDING_APPROVAL) {
+            for (Meeting m : series) {
+                if (m.getStatus() == MeetingStatus.PENDING_APPROVAL) {
                     m.setStatus(MeetingStatus.SCHEDULED);
-                    meetingRepository.save(m);
-                    log.info("Meeting {} approved as part of repeat group", m.getId());
-
-                    // Sync to Google Calendar for this meeting too
-                    try {
-                        if (googleCalendarService.isConnected(creatorId)) {
-                            googleCalendarService.syncMeetingToGoogle(m, creatorId);
-                        }
-                    } catch (Exception e) {
-                        log.warn("Failed to sync repeat meeting {} to Google Calendar", m.getId(), e);
-                    }
                 }
             }
-        }
+            meetingRepository.saveAll(series);
 
-        return savedMeeting;
+            // Trả về meeting đầu tiên trong chuỗi
+            return series.stream()
+                    .min(Comparator.comparing(Meeting::getStartTime))
+                    .orElse(meeting);
+        } else {
+            meeting.setStatus(MeetingStatus.SCHEDULED);
+            return meetingRepository.save(meeting);
+        }
     }
 
     /* ====================== REJECT MEETING ====================== */
@@ -441,33 +512,28 @@ public class MeetingService {
         Meeting meeting = meetingRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorStatus.MEETING_NOT_FOUND));
 
-        if (meeting.getStatus() == MeetingStatus.CANCELLED) {
-            throw new AppException(ErrorStatus.MEETING_ALREADY_CANCELLED);
-        }
+        if (meeting.getRepeatGroupId() != null) {
+            log.info("Rejecting entire repeat series - groupId: {}", meeting.getRepeatGroupId());
+            List<Meeting> series = meetingRepository.findByRepeatGroupId(meeting.getRepeatGroupId());
 
-        meeting.setStatus(MeetingStatus.CANCELLED);
-        meeting.setCancelledAt(LocalDateTime.now());
-        meeting.setCancellationReason("Rejected by admin");
-        Meeting savedMeeting = meetingRepository.save(meeting);
-        log.info("Meeting {} rejected", id);
-
-        // Nếu là repeat meeting, reject tất cả meetings trong group
-        if (savedMeeting.isRepeat() && savedMeeting.getRepeatGroupId() != null) {
-            log.info("Rejecting all repeat meetings with group ID: {}", savedMeeting.getRepeatGroupId());
-            List<Meeting> groupMeetings = meetingRepository.findByRepeatGroupId(savedMeeting.getRepeatGroupId());
-
-            for (Meeting m : groupMeetings) {
-                if (!m.getId().equals(id) && m.getStatus() == MeetingStatus.PENDING_APPROVAL) {
+            for (Meeting m : series) {
+                if (m.getStatus() == MeetingStatus.PENDING_APPROVAL) {
                     m.setStatus(MeetingStatus.CANCELLED);
                     m.setCancelledAt(LocalDateTime.now());
-                    m.setCancellationReason("Rejected as part of repeat group");
-                    meetingRepository.save(m);
-                    log.info("Meeting {} rejected as part of repeat group", m.getId());
+                    m.setCancellationReason("Rejected by admin");
                 }
             }
-        }
+            meetingRepository.saveAll(series);
 
-        return savedMeeting;
+            return series.stream()
+                    .min(Comparator.comparing(Meeting::getStartTime))
+                    .orElse(meeting);
+        } else {
+            meeting.setStatus(MeetingStatus.CANCELLED);
+            meeting.setCancelledAt(LocalDateTime.now());
+            meeting.setCancellationReason("Rejected by admin");
+            return meetingRepository.save(meeting);
+        }
     }
 
     /* ====================== GET METHODS ====================== */
