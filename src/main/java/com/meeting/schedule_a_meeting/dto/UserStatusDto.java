@@ -7,7 +7,7 @@ import java.util.UUID;
 
 @Data
 @Builder
-public class UserStatus {
+public class UserStatusDto {
     private UUID userId;
     private String status;
 }

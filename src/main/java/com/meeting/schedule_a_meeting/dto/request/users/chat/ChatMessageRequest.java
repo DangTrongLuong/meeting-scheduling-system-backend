@@ -1,4 +1,4 @@
-package com.meeting.schedule_a_meeting.dto.request.users;
+package com.meeting.schedule_a_meeting.dto.request.users.chat;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
