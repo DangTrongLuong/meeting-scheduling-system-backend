@@ -11,7 +11,6 @@ import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,6 +30,7 @@ import com.meeting.schedule_a_meeting.enums.Role;
 import com.meeting.schedule_a_meeting.exception.AppException;
 import com.meeting.schedule_a_meeting.mapper.admin.MeetingRoomMapper;
 import com.meeting.schedule_a_meeting.mapper.users.UserMapper;
+import com.meeting.schedule_a_meeting.repositories.GoogleCalendarConnectionRepository;
 import com.meeting.schedule_a_meeting.repositories.MeetingRoomRepository;
 import com.meeting.schedule_a_meeting.repositories.UserRepository;
 import com.meeting.schedule_a_meeting.repositories.meeting.MeetingDeviceRepository;
@@ -57,6 +57,7 @@ public class UserService {
     final MeetingRepository meetingRepository;
     final MeetingParticipantRepository participantRepository;
     final MeetingDeviceRepository meetingDeviceRepository;
+    final GoogleCalendarConnectionRepository googleCalendarConnectionRepository;
 
     private static final String DEFAULT_AVATAR_URL = "http://localhost:8080/uploads/avatars/user-avatar.png";
 
@@ -173,6 +174,7 @@ public class UserService {
         }
 
         participantRepository.deleteByUserId(id);
+        googleCalendarConnectionRepository.deleteByUserId(id);
         userRepository.delete(user);
     }
 
@@ -283,4 +285,5 @@ public class UserService {
         PageRequest pageable = PageRequest.of(page, pageSize);
         return userRepository.findAll(pageable);
     }
+
 }

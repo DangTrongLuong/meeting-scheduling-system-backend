@@ -4,14 +4,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import com.meeting.schedule_a_meeting.dto.request.users.chat.ChatMessageRequest;
-import com.meeting.schedule_a_meeting.dto.response.users.chat.ChatConversationResponse;
-import com.meeting.schedule_a_meeting.dto.response.users.chat.ChatMessageResponse;
-import com.meeting.schedule_a_meeting.dto.response.users.meeting.ApiResponse;
-import com.meeting.schedule_a_meeting.service.users.ChatService;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,7 +18,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-
+import com.meeting.schedule_a_meeting.dto.request.users.chat.ChatMessageRequest;
+import com.meeting.schedule_a_meeting.dto.response.users.chat.ChatConversationResponse;
+import com.meeting.schedule_a_meeting.dto.response.users.chat.ChatMessageResponse;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.ApiResponse;
+import com.meeting.schedule_a_meeting.dto.response.users.meeting.UserSummary;
+import com.meeting.schedule_a_meeting.service.users.ChatService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping("/api/chat")
 @RequiredArgsConstructor
 @Slf4j
+@PreAuthorize("hasAnyRole('USER','ADMIN','SUPERADMIN')")
 public class ChatController {
 
     private final ChatService chatService;
@@ -92,5 +94,15 @@ public class ChatController {
 
         return ResponseEntity.ok(Map.of("unreadCount", count));
     }
-}
 
+    @GetMapping("/search-users")
+    public ResponseEntity<ApiResponse<List<UserSummary>>> searchUsers(
+            @RequestParam String keyword,
+            @RequestHeader("userId") UUID userId) {
+        log.info("Searching users with keyword: {}", keyword);
+
+        List<UserSummary> response = chatService.searchUsers(keyword, userId);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+}

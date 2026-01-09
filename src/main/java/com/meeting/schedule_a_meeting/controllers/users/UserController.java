@@ -9,12 +9,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import com.meeting.schedule_a_meeting.service.users.AuthenticationService;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.meeting.schedule_a_meeting.dto.request.users.UserCreationRequest;
@@ -24,6 +32,8 @@ import com.meeting.schedule_a_meeting.entities.Users;
 import com.meeting.schedule_a_meeting.enums.ErrorStatus;
 import com.meeting.schedule_a_meeting.exception.AppException;
 import com.meeting.schedule_a_meeting.repositories.UserRepository;
+import com.meeting.schedule_a_meeting.service.users.AuthenticationService;
+import com.meeting.schedule_a_meeting.service.users.ChatService;
 import com.meeting.schedule_a_meeting.service.users.UserService;
 
 import lombok.AccessLevel;
@@ -42,7 +52,7 @@ public class UserController {
     UserRepository userRepository;
     PasswordEncoder passwordEncoder;
     AuthenticationService authenticationService;
-
+    ChatService chatService;
 
     @PostMapping("/register")
     public ResponseEntity<?> createUser(@RequestBody UserCreationRequest request) {
@@ -74,7 +84,6 @@ public class UserController {
         }
     }
 
-
     // UserController.java
 
     // UserController.java - trong @PostMapping("/register-bulk")
@@ -84,8 +93,7 @@ public class UserController {
             if (requests == null || requests.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
-                        "message", "No users provided"
-                ));
+                        "message", "No users provided"));
             }
 
             // Chuẩn hoá emails từ payload
@@ -133,13 +141,11 @@ public class UserController {
             log.error("Bulk registration failed", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "success", false,
-                    "message", "Server error during bulk creation"
-            ));
+                    "message", "Server error during bulk creation"));
         }
     }
 
-
-        @GetMapping("/get-users")
+    @GetMapping("/get-users")
     List<Users> getUsers() {
         return userService.getUsers();
     }
@@ -419,4 +425,5 @@ public class UserController {
     public Page<Users> getUsers(@RequestParam(defaultValue = "0") int page) {
         return userService.getUsersByPage(page);
     }
+
 }

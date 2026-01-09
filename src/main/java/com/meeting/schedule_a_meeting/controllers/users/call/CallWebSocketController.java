@@ -2,15 +2,14 @@ package com.meeting.schedule_a_meeting.controllers.users.call;
 
 import java.util.UUID;
 
-import com.meeting.schedule_a_meeting.dto.response.users.call.CallSessionResponse;
-import com.meeting.schedule_a_meeting.service.CallService;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.annotation.SubscribeMapping;
 import org.springframework.stereotype.Controller;
 
-
+import com.meeting.schedule_a_meeting.dto.response.users.call.CallSessionResponse;
+import com.meeting.schedule_a_meeting.service.users.CallService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +21,6 @@ public class CallWebSocketController {
 
     private final CallService callService;
     private final SimpMessagingTemplate messagingTemplate;
-
 
     @MessageMapping("/call.incoming")
     public void broadcastIncomingCall(UUID callId) {

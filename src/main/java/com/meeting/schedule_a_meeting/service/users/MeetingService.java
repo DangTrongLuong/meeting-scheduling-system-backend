@@ -5,9 +5,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -24,6 +26,7 @@ import com.meeting.schedule_a_meeting.dto.request.users.meetting.CreateMeetingRe
 import com.meeting.schedule_a_meeting.dto.request.users.meetting.DeviceBorrowRequest;
 import com.meeting.schedule_a_meeting.dto.request.users.meetting.ParticipantRequest;
 import com.meeting.schedule_a_meeting.dto.request.users.meetting.UpdateMeetingRequest;
+import com.meeting.schedule_a_meeting.dto.response.admin.PendingDeviceRequestDto;
 import com.meeting.schedule_a_meeting.dto.response.admin.RoomDeviceResponse;
 import com.meeting.schedule_a_meeting.dto.response.users.meeting.DeviceResponse;
 import com.meeting.schedule_a_meeting.dto.response.users.meeting.DeviceSummary;
@@ -34,6 +37,7 @@ import com.meeting.schedule_a_meeting.entities.Meeting;
 import com.meeting.schedule_a_meeting.entities.MeetingDevice;
 import com.meeting.schedule_a_meeting.entities.MeetingParticipant;
 import com.meeting.schedule_a_meeting.entities.MeetingRoom;
+import com.meeting.schedule_a_meeting.entities.RoomDevice;
 import com.meeting.schedule_a_meeting.entities.Users;
 import com.meeting.schedule_a_meeting.enums.DeviceStatus;
 import com.meeting.schedule_a_meeting.enums.ErrorStatus;
@@ -80,17 +84,17 @@ public class MeetingService {
     /* ====================== CREATE MEETING ====================== */
     @Transactional
     public MeetingResponse createMeeting(CreateMeetingRequest request, UUID creatorId) {
-        log.info("=== CREATE MEETING REQUEST (WITH REPEAT SUPPORT) ===");
+        log.info("=== CREATE MEETING REQUEST (WITH ACCURATE REPEAT SUPPORT) ===");
         log.info("Title: {}", request.getTitle());
         log.info("Date: {}", request.getDate());
         log.info("StartTime: {}, EndTime: {}", request.getStartTime(), request.getEndTime());
         log.info("RoomId: {}", request.getRoomId());
         log.info("RepeatType: {}", request.getRepeatType());
+        log.info("RepeatUntilDate: {}", request.getRepeatUntilDate());
         log.info("RepeatWeeks: {}", request.getRepeatWeeks());
-        log.info("RepeatEndAfterMonths: {}", request.getRepeatEndAfterMonths());
         log.info("RepeatDays: {}", request.getRepeatDays());
 
-        // Validation cơ bản (giữ nguyên logic cũ của bạn)
+        // Validation cơ bản
         if (request.getDate() == null || request.getDate().isEmpty()) {
             throw new AppException(ErrorStatus.INVALID_INPUT, "Date is required");
         }
@@ -113,74 +117,118 @@ public class MeetingService {
                 .orElseThrow(() -> new AppException(ErrorStatus.ROOM_NOT_FOUND));
 
         LocalDate baseDate = LocalDate.parse(request.getDate());
+        LocalDateTime baseStart = LocalDateTime.of(baseDate, startTime);
+        LocalDateTime baseEnd = LocalDateTime.of(baseDate, endTime);
 
         // Xử lý repeat
-        String repeatType = request.getRepeatType();
-        boolean isRepeat = repeatType != null &&
-                Set.of("DAILY", "WEEKLY", "CUSTOM").contains(repeatType.toUpperCase());
-
-        String repeatGroupId = isRepeat ? UUID.randomUUID().toString() : null;
-        List<String> daysToRepeat = null;
+        String repeatTypeStr = request.getRepeatType();
+        boolean isRepeat = false;
+        String repeatGroupId = null;
         LocalDate seriesEndDate = null;
+        List<String> daysToRepeat = null;
 
-        if (isRepeat) {
-            switch (repeatType.toUpperCase()) {
-                case "DAILY":
-                    daysToRepeat = List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY");
-                    Integer monthsDaily = request.getRepeatEndAfterMonths();
-                    if (monthsDaily == null || monthsDaily < 1 || monthsDaily > 2) {
-                        throw new AppException(ErrorStatus.INVALID_INPUT, "Daily repeat must end after 1 or 2 months");
-                    }
-                    seriesEndDate = baseDate.plusMonths(monthsDaily).minusDays(1);
-                    break;
+        if (repeatTypeStr != null && !repeatTypeStr.isEmpty()) {
+            String normalizedType = repeatTypeStr.toUpperCase();
+            isRepeat = Set.of("DAILY", "WEEKLY", "CUSTOM").contains(normalizedType);
 
-                case "WEEKLY":
-                    Integer weeks = request.getRepeatWeeks();
-                    if (weeks == null || weeks < 1 || weeks > 36) {
+            if (isRepeat) {
+                repeatGroupId = UUID.randomUUID().toString();
+
+                // Ưu tiên: Nếu có repeatUntilDate → dùng chính xác ngày này làm giới hạn
+                if (request.getRepeatUntilDate() != null && !request.getRepeatUntilDate().isEmpty()) {
+                    try {
+                        LocalDate untilDate = LocalDate.parse(request.getRepeatUntilDate());
+                        if (untilDate.isBefore(baseDate)) {
+                            throw new AppException(ErrorStatus.INVALID_INPUT,
+                                    "Repeat until date must be on or after the start date");
+                        }
+                        seriesEndDate = untilDate; // inclusive
+
+                        // Xác định daysToRepeat dựa trên loại repeat
+                        switch (normalizedType) {
+                            case "DAILY":
+                                daysToRepeat = List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY",
+                                        "SATURDAY", "SUNDAY");
+                                break;
+                            case "WEEKLY":
+                                daysToRepeat = List.of(baseDate.getDayOfWeek().name());
+                                break;
+                            case "CUSTOM":
+                                if (request.getRepeatDays() == null || request.getRepeatDays().isEmpty()) {
+                                    throw new AppException(ErrorStatus.INVALID_INPUT,
+                                            "At least one day must be selected for custom repeat");
+                                }
+                                daysToRepeat = new ArrayList<>(request.getRepeatDays());
+                                break;
+                        }
+                    } catch (DateTimeParseException e) {
                         throw new AppException(ErrorStatus.INVALID_INPUT,
-                                "Weekly repeat must be between 1 and 36 weeks");
+                                "Invalid repeatUntilDate format. Use yyyy-MM-dd");
                     }
-                    daysToRepeat = List.of(baseDate.getDayOfWeek().name());
-                    seriesEndDate = baseDate.plusWeeks(weeks).minusDays(1);
-                    break;
+                }
+                // Fallback: Không có repeatUntilDate → dùng logic cũ (theo tuần/tháng)
+                else {
+                    switch (normalizedType) {
+                        case "DAILY":
+                            Integer monthsDaily = request.getRepeatEndAfterMonths();
+                            if (monthsDaily == null || monthsDaily < 1 || monthsDaily > 2) {
+                                throw new AppException(ErrorStatus.INVALID_INPUT,
+                                        "Daily repeat must end after 1 or 2 months");
+                            }
+                            seriesEndDate = baseDate.plusMonths(monthsDaily).minusDays(1);
+                            daysToRepeat = List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY",
+                                    "SUNDAY");
+                            break;
 
-                case "CUSTOM":
-                    if (request.getRepeatDays() == null || request.getRepeatDays().isEmpty()) {
-                        throw new AppException(ErrorStatus.INVALID_INPUT,
-                                "At least one day must be selected for custom repeat");
-                    }
-                    daysToRepeat = new ArrayList<>(request.getRepeatDays());
-                    Integer monthsCustom = request.getRepeatEndAfterMonths();
-                    if (monthsCustom == null || monthsCustom < 1 || monthsCustom > 2) {
-                        throw new AppException(ErrorStatus.INVALID_INPUT, "Custom repeat must end after 1 or 2 months");
-                    }
-                    seriesEndDate = baseDate.plusMonths(monthsCustom).minusDays(1);
-                    break;
+                        case "WEEKLY":
+                            Integer weeks = request.getRepeatWeeks();
+                            if (weeks == null || weeks < 1 || weeks > 36) {
+                                throw new AppException(ErrorStatus.INVALID_INPUT,
+                                        "Weekly repeat must be between 1 and 36 weeks");
+                            }
+                            seriesEndDate = baseDate.plusWeeks(weeks).minusDays(1);
+                            daysToRepeat = List.of(baseDate.getDayOfWeek().name());
+                            break;
 
-                default:
-                    isRepeat = false; // fallback an toàn
+                        case "CUSTOM":
+                            if (request.getRepeatDays() == null || request.getRepeatDays().isEmpty()) {
+                                throw new AppException(ErrorStatus.INVALID_INPUT,
+                                        "At least one day must be selected for custom repeat");
+                            }
+                            Integer monthsCustom = request.getRepeatEndAfterMonths();
+                            if (monthsCustom == null || monthsCustom < 1 || monthsCustom > 2) {
+                                throw new AppException(ErrorStatus.INVALID_INPUT,
+                                        "Custom repeat must end after 1 or 2 months");
+                            }
+                            seriesEndDate = baseDate.plusMonths(monthsCustom).minusDays(1);
+                            daysToRepeat = new ArrayList<>(request.getRepeatDays());
+                            break;
+                    }
+                }
             }
         }
 
-        // Tính danh sách các ngày cần tạo meeting
+        // Tạo danh sách các ngày cần tạo meeting
         List<LocalDate> targetDates = new ArrayList<>();
+
+        targetDates.add(baseDate);
+
         if (isRepeat && seriesEndDate != null) {
-            LocalDate current = baseDate;
+            // Bắt đầu lặp từ ngày TIẾP THEO ngày gốc để tránh trùng
+            LocalDate current = baseDate.plusDays(1);
             while (!current.isAfter(seriesEndDate)) {
                 if (daysToRepeat.contains(current.getDayOfWeek().name())) {
                     targetDates.add(current);
                 }
                 current = current.plusDays(1);
             }
-        } else {
-            targetDates.add(baseDate);
         }
 
         if (targetDates.isEmpty()) {
-            throw new AppException(ErrorStatus.INVALID_INPUT, "No valid dates generated for the meeting");
+            throw new AppException(ErrorStatus.INVALID_INPUT, "No valid dates generated for the meeting series");
         }
 
-        log.info("Generating {} meetings on dates: {}", targetDates.size(), targetDates);
+        log.info("Generating {} meeting(s) on dates: {}", targetDates.size(), targetDates);
 
         List<Meeting> createdMeetings = new ArrayList<>();
 
@@ -214,7 +262,6 @@ public class MeetingService {
             meetingRepository.save(meeting);
 
             assignDefaultRoomDevices(meeting);
-
             addParticipantsByEmail(meeting, request.getParticipants(), creatorId);
 
             if (request.getBorrowedDevices() != null && !request.getBorrowedDevices().isEmpty()) {
@@ -812,6 +859,77 @@ public class MeetingService {
         return meetings.stream()
                 .map(meeting -> meetingMapper.toMeetingResponse(meeting))
                 .collect(Collectors.toList());
+    }
+
+    // MeetingService.java
+    public List<PendingDeviceRequestDto> getFrequentlyBorrowedDevices(String roomId) {
+        List<MeetingDevice> borrowed = meetingDeviceRepository.findBorrowedAdditionalInRoom(roomId);
+
+        if (borrowed.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        Map<Device, Integer> totalByDevice = borrowed.stream()
+                .collect(Collectors.groupingBy(
+                        MeetingDevice::getDevice,
+                        Collectors.summingInt(MeetingDevice::getQuantity)));
+
+        Map<Device, Long> countByDevice = borrowed.stream()
+                .collect(Collectors.groupingBy(
+                        MeetingDevice::getDevice,
+                        Collectors.counting()));
+
+        MeetingRoom room = meetingRoomRepository.findById(roomId)
+                .orElseThrow(() -> new AppException(ErrorStatus.ROOM_NOT_FOUND));
+
+        return totalByDevice.entrySet().stream()
+                .map(entry -> PendingDeviceRequestDto.builder()
+                        .deviceId(entry.getKey().getId())
+                        .deviceName(entry.getKey().getName())
+                        .totalRequestedQuantity(entry.getValue())
+                        .requestCount(countByDevice.getOrDefault(entry.getKey(), 0L).intValue())
+                        .roomId(roomId)
+                        .roomName(room.getName())
+                        .build())
+                .sorted(Comparator.comparingInt(PendingDeviceRequestDto::getTotalRequestedQuantity).reversed())
+                .collect(Collectors.toList());
+    }
+
+    // 2. Admin gán cố định thiết bị vào phòng
+    @Transactional
+    public void assignDeviceToRoomPermanently(String roomId, String deviceId, int quantity) {
+        if (quantity <= 0) {
+            throw new AppException(ErrorStatus.INVALID_INPUT, "Quantity must be greater than 0");
+        }
+
+        MeetingRoom room = meetingRoomRepository.findById(roomId)
+                .orElseThrow(() -> new AppException(ErrorStatus.ROOM_NOT_FOUND));
+
+        Device device = deviceRepository.findById(deviceId)
+                .orElseThrow(() -> new AppException(ErrorStatus.DEVICE_NOT_FOUND));
+
+        List<RoomDevice> existingList = roomDeviceRepository
+                .findByMeetingRoomIdAndDeviceId(roomId, deviceId);
+
+        RoomDevice existing = existingList.isEmpty() ? null : existingList.get(0);
+
+        if (existing != null) {
+            // Đã có → tăng số lượng
+            existing.setQuantity(existing.getQuantity() + quantity);
+            roomDeviceRepository.save(existing);
+            log.info("Increased RoomDevice quantity: {} + {} for device {} in room {}",
+                    existing.getQuantity() - quantity, quantity, device.getName(), room.getName());
+        } else {
+            // Chưa có → tạo mới
+            RoomDevice newAssignment = RoomDevice.builder()
+                    .meetingRoom(room)
+                    .device(device)
+                    .quantity(quantity)
+                    .status(RoomDeviceStatus.IN_USE)
+                    .build();
+            roomDeviceRepository.save(newAssignment);
+            log.info("Created new RoomDevice: {} x {} in room {}", quantity, device.getName(), room.getName());
+        }
     }
 
 }
