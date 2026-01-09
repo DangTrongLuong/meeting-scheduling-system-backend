@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -49,7 +48,8 @@ public class TokenFilter extends OncePerRequestFilter {
                 || path.startsWith("/api/admin/")
                 || path.startsWith("/api/users/")
                 || path.startsWith("/api/meetings/")
-        || path.startsWith("/api/google-calendar/")) {
+                || path.startsWith("/api/google-calendar/")
+                || path.startsWith("/ws/")) {
             filterChain.doFilter(request, response);
             return;
         }

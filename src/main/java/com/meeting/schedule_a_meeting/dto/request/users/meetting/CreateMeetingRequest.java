@@ -48,6 +48,8 @@ public class CreateMeetingRequest {
     @JsonProperty("repeatEndAfterMonths") // 1 hoặc 2, chỉ dùng khi DAILY hoặc CUSTOM
     private Integer repeatEndAfterMonths;
 
+    private String repeatUntilDate;
+    
     private List<ParticipantRequest> participants;
 
     // private List<DeviceRequest> devices;
